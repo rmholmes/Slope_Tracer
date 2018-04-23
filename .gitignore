@@ -1,0 +1,8 @@
+
+snapshots/
+
+saveRUNS/
+
+*.invalid
+
+\.ipynb_checkpoints/
