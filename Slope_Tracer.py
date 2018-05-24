@@ -54,13 +54,13 @@ K.meta['y']['constant'] = True
 Kz = domain.new_field()
 Kz.meta['y']['constant'] = True
 
-Kinf = 1.0e-3
+Kinf = 1.0e-5
 K0 = 1.0e-3
 d = 500.0
 K['g'] = Kinf + (K0-Kinf)*np.exp(-z/d)
 K.differentiate('z',out=Kz)
 
-# Isopycnal Diffusivity
+# Isopycnal (horizontal) Diffusivity
 AH = 10.0
 
 # Upslope Velocity
@@ -73,21 +73,22 @@ q0 = (N2*np.sin(theta)*np.sin(theta)/4.0/Pr0/K0/K0)**(1.0/4.0)
 
 PSI['g'] = np.cos(theta)/np.sin(theta)*(1.0-np.exp(-q0*z)*(np.cos(q0*z)+np.sin(q0*z)))
 
-#PSI['g'] = PSI['g']*K['g']  # SML + BBL
+PSI['g'] = PSI['g']*K['g']  # SML + BBL
 #PSI['g'] = PSI['g']*K0 # BBL
-PSI['g'] = 0.0              # No V
+#PSI['g'] = 0.0              # No V
 
 PSI.differentiate('z',out=V)
 
 # Buoyancy field:
 By = N2*np.sin(theta)
-Bz = domain.new_field()
-Bz.meta['y']['constant'] = True
+Bz = domain.new_field();Bz.meta['y']['constant'] = True
 B = domain.new_field()
-#B['g'] = N2*np.sin(theta)*y + N2*np.cos(theta)*(z + np.exp(-q0*z)*np.cos(q0*z)/q0)
-#Bz['g'] = N2*np.cos(theta)*(1.-np.exp(-q0*z)*(np.cos(q0*z)+np.sin(q0*z)))
-B['g'] = N2*np.sin(theta)*y + N2*np.cos(theta)*z
-Bz['g'] = N2*np.cos(theta)
+B['g'] = N2*np.sin(theta)*y + N2*np.cos(theta)*(z + np.exp(-q0*z)*np.cos(q0*z)/q0)
+f = domain.new_field();f.meta['y']['constant'] = True
+fz = domain.new_field();fz.meta['y']['constant'] = True
+f['g'] = np.exp(-q0*z)*(np.cos(q0*z)+np.sin(q0*z))
+fz['g'] = -2.*q0*np.exp(-q0*z)*np.sin(q0*z)
+Bz['g'] = N2*np.cos(theta)*(1.-f['g'])
 
 # Equations and Solver
 problem = de.IVP(domain, variables=['tr','trz'])
@@ -97,15 +98,33 @@ problem.parameters['K'] = K
 problem.parameters['Kz'] = Kz
 problem.parameters['AH'] = AH
 problem.parameters['V'] = V
-problem.parameters['Bz'] = Bz
 problem.parameters['By'] = By
+problem.parameters['Bz'] = Bz
 problem.parameters['B'] = B
-problem.substitutions['GB2'] = "(Bz**2.+By**2.)"
-problem.substitutions['By2'] = "(By**2.)"
-problem.substitutions['Bz2'] = "(Bz**2.)"
-#problem.add_equation("dt(tr) - E0*d(tr,y=2) - K0*dz(trz) = Kv*dz(trz) + Kvz*trz + Ev*d(tr,y=2) - V*dy(tr)")
-#problem.add_equation("dt(tr) - E0*d(tr,y=2) - K0*dz(trz) -Kvref*dz(trz) - Kvzref*trz = (Kv-Kvref)*dz(trz) + (Kvz-Kvzref)*trz + Ev*d(tr,y=2) - V*dy(tr)")
-problem.add_equation("dt(tr) + V*dy(tr) - (AH*Bz2/GB2 + K)*d(tr,y=2) + 2*AH*By*Bz/GB2*dy(trz) + AH*By*dz(Bz/GB2)*dy(tr) - (AH*By2*dz(1./GB2)+Kz)*trz - (AH*By2/GB2+K)*dz(trz) = 0.")
+
+# # Full Equation:
+# problem.substitutions['GB2'] = "(Bz**2.+By**2.)"
+# problem.substitutions['By2'] = "(By**2.)"
+# problem.substitutions['Bz2'] = "(Bz**2.)"
+# problem.add_equation("dt(tr) + V*dy(tr) - (AH*Bz2/GB2 + K)*d(tr,y=2) + 2*AH*By*Bz/GB2*dy(trz) + AH*By*dz(Bz/GB2)*dy(tr) - (AH*By2*dz(1./GB2)+Kz)*trz - (AH*By2/GB2+K)*dz(trz) = 0.")
+
+# # Full Equation with analytic derivatives:
+# problem.parameters['tanth'] = np.tan(theta)
+# problem.parameters['cotth'] = 1/np.tan(theta)
+# problem.parameters['f'] = f
+# problem.parameters['fz'] = fz
+# problem.substitutions['Bz2d'] = '(1-f)**2./(tanth**2.+(1-f)**2.)'
+# problem.substitutions['ByBzd'] = '(1-f)/(tanth+cotth*(1-f)**2.)'
+# problem.substitutions['By2d'] = '1/(1+cotth**2.*(1-f)**2.)'
+# problem.substitutions['ByBzdd'] = 'fz*(cotth*(1-f)**2.-tanth)/(tanth+cotth*(1-f)**2.)**2.'
+# problem.substitutions['By2dd'] = '2*(1-f)*fz/(1+cotth**2.*(1-f)**2.)**2.'
+# problem.add_equation("dt(tr) + V*dy(tr) - (AH*Bz2d + K)*d(tr,y=2) + 2*AH*ByBzd*dy(trz) + AH*ByBzdd*dy(tr) - (AH*By2dd+Kz)*trz - (AH*By2d+K)*dz(trz) = 0.")
+
+# # Only Interior buoyancy influences AH (but full B used for binning):
+problem.parameters['costh'] = np.cos(theta)
+problem.parameters['sinth'] = np.sin(theta)
+problem.add_equation("dt(tr) + V*dy(tr) - (AH*costh**2. + K)*d(tr,y=2) + 2*AH*sinth*costh*dy(trz) - Kz*trz - (AH*sinth**2.+K)*dz(trz) = 0.")
+
 problem.add_equation("trz - dz(tr) = 0")
 problem.add_bc("left(trz) = 0")
 problem.add_bc("right(trz) = 0")
@@ -120,7 +139,7 @@ trz = solver.state['trz']
 
 # Gaussian blob:
 #sy = Ly/80.0;sz = Lz/40.0;cy = Ly/3.0;cz = 2*d
-sy = Ly/40.0;sz = Lz/20.0;cy = Ly/2.0;cz = 1.5*d
+sy = Ly/40.0;sz = Lz/20.0;cy = Ly/2.0;cz = 0.5*d
 tr['g'] = np.exp(-(z-cz)**2/2/sz**2 -(y-cy)**2/2/sy**2)
 #tr['g'] = np.exp(-(y-cy)**2/2/sy**2)
 #tr['g'] = np.exp(-(z-cz)**2/2/sz**2)
@@ -133,14 +152,18 @@ tr.differentiate('z',out=trz)
 
 # Integration parameters
 lday = 1.0e5 # A "long-day" unit (86400 ~= 100000)
-dt=8*lday
+#dt=8*lday
+dt=lday/2
+Ttot = 50
 solver.stop_sim_time = np.inf
 solver.stop_wall_time = np.inf 
-solver.stop_iteration = 200*lday/dt
+solver.stop_iteration = Ttot*lday/dt
+sfreq = 2
+Itot = solver.stop_iteration
 
 # Save parameters:
 np.savez('runparams',Ly=Ly,Lz=Lz,N2=N2,slope=slope,theta=theta,Pr0=Pr0,Kinf=Kinf,K0=K0,d=d,AH=AH,
-         q0=q0,By=By,sy=sy,sz=sz,cy=cy,cz=cz,lday=lday,dt=dt)
+         q0=q0,By=By,sy=sy,sz=sz,cy=cy,cz=cz,lday=lday,dt=dt,sfreq=sfreq,Itot=Itot,Ttot=Ttot)
 
 ## Analysis
 # Input fields file:
@@ -151,7 +174,7 @@ ifields.add_task("V", layout='g', name = 'V')
 ifields.add_task("Bz", layout='g', name = 'Bz')
 
 # Snapshots file:
-snapshots = solver.evaluator.add_file_handler('snapshots', iter=2, max_writes=500)
+snapshots = solver.evaluator.add_file_handler('snapshots', iter=sfreq, max_writes=500)
 snapshots.add_system(solver.state, layout='g')
 snapshots.add_task("integ(tr,'y')", layout='g', name = 'ym0')
 snapshots.add_task("integ(tr*y,'y')", layout='g', name = 'ym1')
