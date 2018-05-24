@@ -32,11 +32,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Input Grids and parameters ------------------------------------------------------------
-Ly, Lz = (800000., 1500.) # units = 1m
+Ly, Lz = (1000000., 2000.) # units = 1m
+ny, nz = (256, 128)
 
 # Create bases and domain
-y_basis = de.Fourier('y', 256, interval=(0, Ly))#, dealias=3/2)
-z_basis = de.Chebyshev('z', 128, interval=(0, Lz))#, dealias=3/2)
+y_basis = de.Fourier('y', ny, interval=(0, Ly))#, dealias=3/2)
+z_basis = de.Chebyshev('z', nz, interval=(0, Lz))#, dealias=3/2)
 domain = de.Domain([y_basis, z_basis], grid_dtype=np.float64)
 
 # Input fields --------------------------------------------------------------------------
@@ -61,7 +62,10 @@ K['g'] = Kinf + (K0-Kinf)*np.exp(-z/d)
 K.differentiate('z',out=Kz)
 
 # Isopycnal (horizontal) Diffusivity
-AH = 10.0
+AH = 0.0
+
+# Initial tracer location
+cz = d/2.
 
 # Upslope Velocity
 PSI = domain.new_field()
@@ -85,9 +89,9 @@ Bz = domain.new_field();Bz.meta['y']['constant'] = True
 B = domain.new_field()
 B['g'] = N2*np.sin(theta)*y + N2*np.cos(theta)*(z + np.exp(-q0*z)*np.cos(q0*z)/q0)
 f = domain.new_field();f.meta['y']['constant'] = True
-fz = domain.new_field();fz.meta['y']['constant'] = True
 f['g'] = np.exp(-q0*z)*(np.cos(q0*z)+np.sin(q0*z))
-fz['g'] = -2.*q0*np.exp(-q0*z)*np.sin(q0*z)
+# fz = domain.new_field();fz.meta['y']['constant'] = True
+# fz['g'] = -2.*q0*np.exp(-q0*z)*np.sin(q0*z)
 Bz['g'] = N2*np.cos(theta)*(1.-f['g'])
 
 # Equations and Solver
@@ -101,12 +105,6 @@ problem.parameters['V'] = V
 problem.parameters['By'] = By
 problem.parameters['Bz'] = Bz
 problem.parameters['B'] = B
-
-# # Full Equation:
-# problem.substitutions['GB2'] = "(Bz**2.+By**2.)"
-# problem.substitutions['By2'] = "(By**2.)"
-# problem.substitutions['Bz2'] = "(Bz**2.)"
-# problem.add_equation("dt(tr) + V*dy(tr) - (AH*Bz2/GB2 + K)*d(tr,y=2) + 2*AH*By*Bz/GB2*dy(trz) + AH*By*dz(Bz/GB2)*dy(tr) - (AH*By2*dz(1./GB2)+Kz)*trz - (AH*By2/GB2+K)*dz(trz) = 0.")
 
 # # Full Equation with analytic derivatives:
 # problem.parameters['tanth'] = np.tan(theta)
@@ -138,8 +136,7 @@ tr = solver.state['tr']
 trz = solver.state['trz']
 
 # Gaussian blob:
-#sy = Ly/80.0;sz = Lz/40.0;cy = Ly/3.0;cz = 2*d
-sy = Ly/40.0;sz = Lz/20.0;cy = Ly/2.0;cz = 0.5*d
+sy = Ly/ny*3.;sz = Lz/nz*3.;cy = Ly/3.;
 tr['g'] = np.exp(-(z-cz)**2/2/sz**2 -(y-cy)**2/2/sy**2)
 #tr['g'] = np.exp(-(y-cy)**2/2/sy**2)
 #tr['g'] = np.exp(-(z-cz)**2/2/sz**2)
@@ -152,9 +149,8 @@ tr.differentiate('z',out=trz)
 
 # Integration parameters
 lday = 1.0e5 # A "long-day" unit (86400 ~= 100000)
-#dt=8*lday
-dt=lday/2
-Ttot = 50
+dt=8*lday
+Ttot = 6400
 solver.stop_sim_time = np.inf
 solver.stop_wall_time = np.inf 
 solver.stop_iteration = Ttot*lday/dt
@@ -189,7 +185,6 @@ snapshots.add_task("integ(integ(tr*y,'y'),'z')", layout='g', name = 'ym1i')
 snapshots.add_task("integ(integ(tr*y*y,'y'),'z')", layout='g', name = 'ym2i')
 snapshots.add_task("integ(integ(tr*z,'z'),'y')", layout='g', name = 'zm1i')
 snapshots.add_task("integ(integ(tr*z*z,'z'),'y')", layout='g', name = 'zm2i')
-
 
 # Main loop
 try:
