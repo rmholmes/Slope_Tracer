@@ -187,12 +187,22 @@ def run_sim(rundir,z0,AH,Kinf,ADV,slope):
     snapshots.add_task("integ(tr*z,'z')", layout='g', name = 'zm1')
     snapshots.add_task("integ(tr*z*z,'z')", layout='g', name = 'zm2')
     snapshots.add_task("integ(integ(tr,'y'),'z')", layout = 'g', name = 'trT')
+    snapshots.add_task("integ(integ(trz,'y'),'z')", layout = 'g', name = 'trzT')
+    snapshots.add_task("integ(integ(trz*z,'y'),'z')", layout = 'g', name = 'trzzT')
+    snapshots.add_task("integ(integ(trz*y,'y'),'z')", layout = 'g', name = 'trzyT')
     snapshots.add_task("integ(integ(tr*B,'y'),'z')", layout = 'g', name = 'bm1i')
     snapshots.add_task("integ(integ(tr*B*B,'y'),'z')", layout = 'g', name = 'bm2i')
     snapshots.add_task("integ(integ(tr*y,'y'),'z')", layout='g', name = 'ym1i')
     snapshots.add_task("integ(integ(tr*y*y,'y'),'z')", layout='g', name = 'ym2i')
     snapshots.add_task("integ(integ(tr*z,'z'),'y')", layout='g', name = 'zm1i')
     snapshots.add_task("integ(integ(tr*z*z,'z'),'y')", layout='g', name = 'zm2i')
+    snapshots.add_task("integ(integ(tr*z*y,'z'),'y')", layout='g', name = 'yzmi')
+    snapshots.add_task("integ(integ(tr*K,'z'),'y')", layout='g', name = 'Ktr')
+    snapshots.add_task("integ(integ(trz*K,'z'),'y')", layout='g', name = 'Ktrz')
+    snapshots.add_task("integ(integ(trz*K*y,'z'),'y')", layout='g', name = 'Kytrz')
+    snapshots.add_task("integ(integ(tr*V,'z'),'y')", layout='g', name = 'Vtr')
+    snapshots.add_task("integ(integ(tr*V*y,'z'),'y')", layout='g', name = 'Vytr')
+    snapshots.add_task("integ(integ(tr*V*z,'z'),'y')", layout='g', name = 'Vztr')
 
     # Main loop
     try:
@@ -226,7 +236,7 @@ def merge_move(rundir,outdir):
     set_paths = list(pathlib.Path(rundir + "ifields").glob("ifields_s*.h5"))
     post.merge_sets(rundir + "ifields/ifields.h5", set_paths, cleanup=True)
     
-# Input parameters:
+# prodruns24-5-19 Input parameters:
 #    z0    (initial tracer patch height cz = z0*d)
 #    AH    (isopycnal diffusivity)
 #    Kinf  (far-field isotropic diffusivity)
@@ -257,12 +267,6 @@ slope = [1./400., 1./400., 1./400., 1./400., 1./400., 1./400.,
          1./400., 1./400., 1./400., 1./400.,1./200., 1./100.,
          1./400., 1./400., 1./400., 1./400., 1./400.,
          1./400., 1./400., 1./400.]
-
-# z0 = [2.]
-# AH = [0.]
-# Kinf = [1.e-5]
-# ADV = [2]
-# slope = [1./400.]
 
 comm = MPI.COMM_WORLD
 nprocs = comm.Get_size()
