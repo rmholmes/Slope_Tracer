@@ -35,8 +35,8 @@ logger = logging.getLogger(__name__)
 def run_sim(rundir,z0,AH,Kinf,ADV,slope):
 
     # Input Grids and parameters ------------------------------------------------------------
-    Ly, Lz = (1000000., 2000.) # units = 1m
-    ny, nz = (256, 128)
+    Ly, Lz = (1500000., 3000.) # units = 1m
+    ny, nz = (384, 192)
 
     # Create bases and domain
     y_basis = de.Fourier('y', ny, interval=(0, Ly))#, dealias=3/2)
@@ -144,7 +144,8 @@ def run_sim(rundir,z0,AH,Kinf,ADV,slope):
     trz = solver.state['trz']
 
     # Gaussian blob:
-    sy = Ly/ny*3.;sz = Lz/nz*3.;cy = Ly/3.;
+    # sy = Ly/ny*3.;sz = Lz/nz*3.;cy = Ly/3.;
+    sy = Ly/ny*3.;sz = Lz/nz*3.;cy = Ly/2.;
     tr['g'] = np.exp(-(z-cz)**2/2/sz**2 -(y-cy)**2/2/sy**2)
     #tr['g'] = np.exp(-(y-cy)**2/2/sy**2)
     #tr['g'] = np.exp(-(z-cz)**2/2/sz**2)
@@ -158,7 +159,7 @@ def run_sim(rundir,z0,AH,Kinf,ADV,slope):
     # Integration parameters
     lday = 1.0e5 # A "long-day" unit (86400 ~= 100000)
     dt=8*lday
-    Ttot = 6400
+    Ttot = 3200
     solver.stop_sim_time = np.inf
     solver.stop_wall_time = np.inf 
     solver.stop_iteration = Ttot*lday/dt
@@ -243,30 +244,15 @@ def merge_move(rundir,outdir):
 #    ADV   (ADV on/off, 0 = no adv., 1 = BBL only, 2 = BBL and SML)
 #    slope (slope)
 
-z0    = [2., 1., 0.5, 0.25, 0.125, 0.0625,
-         0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
-         0.5, 0.5, 0.5, 0.5, 0.5,
-         1., 1., 1.]
+z0    = [0.5, 0.5, 0.5,  0.5,  0.5,   0.5,
+          1.0,  2.0,  1.0,  2.0,   1.0,   2.0]
 
-AH    = [0., 0., 0., 0., 0., 0.,
-         0., 0., 0., 0., 0., 0.,
-         1., 5., 10., 50., 100.,
-         1., 5., 10.]
+AH    = [0.0, 1.0, 5.0, 10.0, 50.0, 100.0,
+         10.0, 10.0, 50.0, 50.0, 100.0, 100.0]
 
-Kinf  = [1.e-5, 1.e-5, 1.e-5, 1.e-5, 1.e-5, 1.e-5,
-         1.e-5, 1.e-5, 1.e-4, 1.e-3, 1.e-5, 1.e-5,
-         1.e-5, 1.e-5, 1.e-5, 1.e-5, 1.e-5,
-         1.e-5, 1.e-5, 1.e-5]
-
-ADV   = [2, 2, 2, 2, 2, 2,
-         0, 1, 2, 2, 2, 2,
-         2, 2, 2, 2, 2,
-         2, 2, 2]
-
-slope = [1./400., 1./400., 1./400., 1./400., 1./400., 1./400.,
-         1./400., 1./400., 1./400., 1./400.,1./200., 1./100.,
-         1./400., 1./400., 1./400., 1./400., 1./400.,
-         1./400., 1./400., 1./400.]
+Kinf  = [1.e-5] * len(AH)
+ADV   = [2] * len(AH)
+slope = [1./400.] * len(AH)
 
 comm = MPI.COMM_WORLD
 nprocs = comm.Get_size()
@@ -283,7 +269,7 @@ for ii in range(len(z0)):
     Kinfs = ('%01d' % np.log10(Kinf[ii])).replace('-','m')
     ADVs = '%01d' % ADV[ii]
     slopes = '%03d' % (1./slope[ii])
-    outdir = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/prodruns24-5-19/z0_%s_AH_%s_Kinf_%s_ADV_%s_slope_%s/' % (z0s,AHs,Kinfs,ADVs,slopes)
+    outdir = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/prodruns_wide30-5-19/z0_%s_AH_%s/' % (z0s,AHs)
     print(outdir)
     merge_move(rundir,outdir)
 
