@@ -146,13 +146,13 @@ def run_sim(rundir,z0,AH,Kinf,ADV,slope):
     # Gaussian blob:
     # sy = Ly/ny*3.;sz = Lz/nz*3.;cy = Ly/3.;
     sy = Ly/ny*3.;sz = Lz/nz*3.;cy = Ly/2.;
-    tr['g'] = np.exp(-(z-cz)**2/2/sz**2 -(y-cy)**2/2/sy**2)
-    #tr['g'] = np.exp(-(y-cy)**2/2/sy**2)
-    #tr['g'] = np.exp(-(z-cz)**2/2/sz**2)
+    # tr['g'] = np.exp(-(z-cz)**2/2/sz**2 -(y-cy)**2/2/sy**2)
+    # #tr['g'] = np.exp(-(y-cy)**2/2/sy**2)
+    # #tr['g'] = np.exp(-(z-cz)**2/2/sz**2)
 
     # Function of buoyancy:
-    # tr['g'] = 0*z
-    # tr['g'][np.logical_and(B['g']/N2/np.cos(theta)>=Lz/4,B['g']/N2/np.cos(theta)<=Lz/4+200.)] = 1
+    tr['g'] = 0*z
+    tr['g'] = np.exp(-(B['g']/N2/np.cos(theta) - cz)**2/2/sz**2)
 
     tr.differentiate('z',out=trz)
 
@@ -244,15 +244,20 @@ def merge_move(rundir,outdir):
 #    ADV   (ADV on/off, 0 = no adv., 1 = BBL only, 2 = BBL and SML)
 #    slope (slope)
 
-z0    = [0.5, 0.5, 0.5,  0.5,  0.5,   0.5,
-          1.0,  2.0,  1.0,  2.0,   1.0,   2.0]
+# z0    = [0.5, 0.5, 0.5,  0.5,  0.5,   0.5,
+#           1.0,  2.0,  1.0,  2.0,   1.0,   2.0]
 
-AH    = [0.0, 1.0, 5.0, 10.0, 50.0, 100.0,
-         10.0, 10.0, 50.0, 50.0, 100.0, 100.0]
+# AH    = [0.0, 1.0, 5.0, 10.0, 50.0, 100.0,
+#          10.0, 10.0, 50.0, 50.0, 100.0, 100.0]
 
+
+ADV = [0, 1, 2, 0, 1, 2]
+AH  = [0., 0., 0., 100., 100., 100.]
+
+z0 = [9] * len(ADV)
 Kinf  = [1.e-5] * len(AH)
-ADV   = [2] * len(AH)
-slope = [1./400.] * len(AH)
+slope = [1./200.] * len(AH)
+# ADV   = [2] * len(AH)
 
 comm = MPI.COMM_WORLD
 nprocs = comm.Get_size()
@@ -269,7 +274,7 @@ for ii in range(len(z0)):
     Kinfs = ('%01d' % np.log10(Kinf[ii])).replace('-','m')
     ADVs = '%01d' % ADV[ii]
     slopes = '%03d' % (1./slope[ii])
-    outdir = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/prodruns_wide30-5-19/z0_%s_AH_%s/' % (z0s,AHs)
+    outdir = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/prodruns_bIC30-5-19/ADV_%s_AH_%s/' % (ADVs,AHs)
     print(outdir)
     merge_move(rundir,outdir)
 
