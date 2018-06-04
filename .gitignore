@@ -6,3 +6,5 @@ saveRUNS/
 *.invalid
 
 \.ipynb_checkpoints/
+
+Analysis_Figures/
