@@ -125,7 +125,9 @@ def run_sim(rundir,z0,AH,Kinf,ADV,slope):
     # problem.substitutions['ByBzdd'] = 'fz*(cotth*(1-f)**2.-tanth)/(tanth+cotth*(1-f)**2.)**2.'
     # problem.substitutions['By2dd'] = '2*(1-f)*fz/(1+cotth**2.*(1-f)**2.)**2.'
     # problem.add_equation("dt(tr) + V*dy(tr) - (AH*Bz2d + K)*d(tr,y=2) + 2*AH*ByBzd*dy(trz) + AH*ByBzdd*dy(tr) - (AH*By2dd+Kz)*trz - (AH*By2d+K)*dz(trz) = 0.")
-
+    # Comments:
+    # - Try formulating equation with the flux
+    # - Try the trick for each individual coefficient.
     # # Only Interior buoyancy influences AH (but full B used for binning):
     problem.parameters['costh'] = np.cos(theta)
     problem.parameters['sinth'] = np.sin(theta)
@@ -145,11 +147,11 @@ def run_sim(rundir,z0,AH,Kinf,ADV,slope):
 
     # Gaussian blob:
     sy = Ly/ny*3.;sz = Lz/nz*3.;cy = Ly/2.;
-    tr['g'] = np.exp(-(z-cz)**2/2/sz**2 -(y-cy)**2/2/sy**2)
+    # tr['g'] = np.exp(-(z-cz)**2/2/sz**2 -(y-cy)**2/2/sy**2)
 
     # Function of buoyancy:
-    # tr['g'] = 0*z
-    # tr['g'] = np.exp(-(B['g']/N2/np.cos(theta) -c cz)**2/2/sz**2)
+    tr['g'] = 0*z
+    tr['g'] = np.exp(-(B['g']/N2/np.cos(theta) - cz)**2/2/sz**2)
 
     tr.differentiate('z',out=trz)
 
@@ -243,16 +245,21 @@ def merge_move(rundir,outdir):
 #    ADV   (ADV on/off, 0 = no adv., 1 = BBL only, 2 = BBL and SML)
 #    slope (slope)
 
-z0    = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
-         1.0, 2.0, 1.0, 2.0, 1.0, 2.0]
+# z0    = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
+#          1.0, 2.0, 1.0, 2.0, 1.0, 2.0]
 
-AH    = [0.0, 1.0, 5.0, 10.0, 50.0, 100.0,
-         10.0, 10.0, 50.0, 50.0, 100.0, 100.0]
+# AH    = [0.0, 1.0, 5.0, 10.0, 50.0, 100.0,
+#          10.0, 10.0, 50.0, 50.0, 100.0, 100.0]
 
+ADV = [2, 2,
+       0, 1, 2, 0, 1, 2]
+AH  = [0., 100.,
+       0., 0., 0., 100., 100., 100.]
+slope = [1./100., 1/100.,
+         1./200., 1/200., 1/200., 1./200., 1/200., 1/200.]
+z0    = [18, 18,
+         9, 9, 9, 9, 9, 9]
 Kinf  = [1.e-5] * len(AH)
-ADV   = [2] * len(AH)
-slope = [1./400.] * len(AH)
-
 comm = MPI.COMM_WORLD
 nprocs = comm.Get_size()
 rank   = comm.Get_rank()
@@ -268,7 +275,7 @@ for ii in range(len(z0)):
     Kinfs = ('%01d' % np.log10(Kinf[ii])).replace('-','m')
     ADVs = '%01d' % ADV[ii]
     slopes = '%03d' % (1./slope[ii])
-    outdir = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/prodruns_wide30-5-19/z0_%s_AH_%s/' % (z0s,AHs)
+    outdir = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/prodruns_bIC30-5-19/ADV_%s_AH_%s_slope_%s/' % (ADVs,AHs,slopes)
     print(outdir)
     merge_move(rundir,outdir)
 
