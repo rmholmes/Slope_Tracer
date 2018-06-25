@@ -35,8 +35,8 @@ logger = logging.getLogger(__name__)
 def run_sim(rundir,z0,AH,Kinf,ADV,slope):
 
     # Input Grids and parameters ------------------------------------------------------------
-    Ly, Lz = (1500000., 3000.) # units = 1m
-    ny, nz = (384, 192)
+    Ly, Lz = (1000000., 2000.) # units = 1m
+    ny, nz = (256, 128)
 
     # Create bases and domain
     y_basis = de.Fourier('y', ny, interval=(0, Ly))#, dealias=3/2)
@@ -146,12 +146,12 @@ def run_sim(rundir,z0,AH,Kinf,ADV,slope):
     trz = solver.state['trz']
 
     # Gaussian blob:
-    sy = Ly/ny*3.;sz = Lz/nz*3.;cy = Ly/2.;
-    # tr['g'] = np.exp(-(z-cz)**2/2/sz**2 -(y-cy)**2/2/sy**2)
+    sy = Ly/ny*3.;sz = Lz/nz*3.;cy = Ly/3.;
+    tr['g'] = np.exp(-(z-cz)**2/2/sz**2 -(y-cy)**2/2/sy**2)
 
-    # Function of buoyancy:
-    tr['g'] = 0*z
-    tr['g'] = np.exp(-(B['g']/N2/np.cos(theta) - cz)**2/2/sz**2)
+    # # Function of buoyancy:
+    # tr['g'] = 0*z
+    # tr['g'] = np.exp(-(B['g']/N2/np.cos(theta) - cz)**2/2/sz**2)
 
     tr.differentiate('z',out=trz)
 
@@ -193,6 +193,8 @@ def run_sim(rundir,z0,AH,Kinf,ADV,slope):
     snapshots.add_task("integ(integ(trz*y,'y'),'z')", layout = 'g', name = 'trzyT')
     snapshots.add_task("integ(integ(tr*B,'y'),'z')", layout = 'g', name = 'bm1i')
     snapshots.add_task("integ(integ(tr*B*B,'y'),'z')", layout = 'g', name = 'bm2i')
+    snapshots.add_task("integ(integ(tr*B*B*B,'y'),'z')", layout = 'g', name = 'bm3i')
+    snapshots.add_task("integ(integ(tr*B*B*B*B,'y'),'z')", layout = 'g', name = 'bm4i')
     snapshots.add_task("integ(integ(tr*y,'y'),'z')", layout='g', name = 'ym1i')
     snapshots.add_task("integ(integ(tr*y*y,'y'),'z')", layout='g', name = 'ym2i')
     snapshots.add_task("integ(integ(tr*z,'z'),'y')", layout='g', name = 'zm1i')
@@ -251,14 +253,18 @@ def merge_move(rundir,outdir):
 # AH    = [0.0, 1.0, 5.0, 10.0, 50.0, 100.0,
 #          10.0, 10.0, 50.0, 50.0, 100.0, 100.0]
 
-ADV = [2, 2,
-       0, 1, 2, 0, 1, 2]
-AH  = [0., 100.,
-       0., 0., 0., 100., 100., 100.]
-slope = [1./100., 1/100.,
-         1./200., 1/200., 1/200., 1./200., 1/200., 1/200.]
-z0    = [18, 18,
-         9, 9, 9, 9, 9, 9]
+# ADV = [2, 2,
+#        0, 1, 2, 0, 1, 2]
+# AH  = [0., 100.,
+#        0., 0., 0., 100., 100., 100.]
+# slope = [1./100., 1/100.,
+#          1./200., 1/200., 1/200., 1./200., 1/200., 1/200.]
+# z0    = [18, 18,
+#          9, 9, 9, 9, 9, 9]
+z0 = [0.5]
+ADV = [2]
+slope = [1/400.]
+AH = [0.]
 Kinf  = [1.e-5] * len(AH)
 comm = MPI.COMM_WORLD
 nprocs = comm.Get_size()
@@ -275,7 +281,7 @@ for ii in range(len(z0)):
     Kinfs = ('%01d' % np.log10(Kinf[ii])).replace('-','m')
     ADVs = '%01d' % ADV[ii]
     slopes = '%03d' % (1./slope[ii])
-    outdir = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/prodruns_bIC30-5-19/ADV_%s_AH_%s_slope_%s/' % (ADVs,AHs,slopes)
+    outdir = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/prodruns24-5-19/z0_%s_AH_%s_Kinf_%s_ADV_%s_slope_%s/' % (z0s,AHs,Kinfs,ADVs,slopes)
     print(outdir)
     merge_move(rundir,outdir)
 
