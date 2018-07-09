@@ -11,6 +11,7 @@ import numpy as np
 from scipy.sparse import spdiags,eye,csr_matrix
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
+import matplotlib.pyplot as plt
 
 # Grid parameters:
 Lh = 4000. # Max size of h-grid
@@ -33,18 +34,9 @@ def fit3par(zF,trF,tf,sz):
     tracer distribution is a gaussian about zF=0 with standard
     deviation sz"""
 
-    # Initial tracer distribution:
-    trI = np.exp(-h**2/2/sz**2)
 
-    trI = trI / np.sum(trI*dh)
-
-    # Observed tracer distribution on grid:
-    f = interp1d(zF,trF,fill_value=0.)
-    trO = np.zeros_like(h)
-    in_range = np.logical_and(h>=np.min(zF),h <= np.max(zF))
-    trO[in_range] = f(h[in_range])
-
-    trO = trO / np.sum(trO*dh)
+    trI,tmp = trINI(sz)
+    trO,tmp = trOBS(zF,trF)
 
     nt = tf // dt
     res = minimize(cost, x0, args = (nt,trI, trO), method = 'nelder-mead',
@@ -57,31 +49,62 @@ def fit3par(zF,trF,tf,sz):
     
 def cost(x, nt, trI, trO):
     """ Cost function """
-    
-    A = operator(x[0]*xsc[0],x[1]*xsc[1],x[2]*xsc[2])
-    tr = solve(A,nt,trI)
+
+    tr = solve(x[0]*xsc[0],x[1]*xsc[1],x[2]*xsc[2],nt,trI)
     
     return(chisq(tr,trO))
 
-def operator(K0,Kh,w):
-    """ Construct the operator matrix for given inputs """
+def solve(K0,Kh,w,nt,trI):
+    """ Take an initial concentration to a final concentration."""
 
     K = np.maximum( K0 + h*Kh , np.zeros_like(h) )
     A = csr_matrix(np.tile(K,(n,1)).T)
     A = A.multiply(D2())
     A = A + (Kh - w) * D1()
 
-    return(A)
-
-def solve(A,nt,trI):
-    """ Take an initial concentration to a final concentration using
-    the matrix operator A and return the final concentration."""
-    
     tr = np.copy(trI)
     for t in range(nt):
         tr += dt * ( A * tr )
     
     return(tr)
+
+def plot(x,zF,trF,tf,sz):
+    """ Plot initial, final and modelled tracer profiles for given
+    parameters."""
+
+    # Plot modelled and observed solutions:
+    trI, h = trINI(sz)
+    trO, h = trOBS(zF,trF)
+    trM = solve(x[0],x[1],x[2],tf // dt, trI)
+
+    f = plt.figure(figsize=(5,5),facecolor='white')
+    plt.plot(trI,h,'-r',label='Initial')
+    plt.plot(trO,h,'-k',label='Observed')
+    plt.plot(trM,h,'-b',label='Modelled')
+    plt.legend()
+    plt.xlabel('Tracer Concentration')
+    plt.ylabel('Depth above target surface')
+    plt.xlim([0., np.max(trO)*1.1])
+    plt.ylim([-Lh/2.,Lh/2.])
+    plt.title('$\kappa_0= $ %.2e, $\kappa_h = $ %.2e, $w = $, %.2e'  % (x[0],x[1],x[2]))
+    
+def trOBS(zF,trF):
+    """ Return observed final tracer distribution on h grid"""
+    f = interp1d(zF,trF,fill_value=0.)
+    trO = np.zeros_like(h)
+    in_range = np.logical_and(h>=np.min(zF),h <= np.max(zF))
+    trO[in_range] = f(h[in_range])
+
+    trO = trO / np.sum(trO*dh)
+
+    return (trO,h)
+
+def trINI(sz):
+    """ Return initial tracer distribution """
+    trI = np.exp(-h**2/2/sz**2)
+    trI = trI / np.sum(trI*dh)
+
+    return (trI,h)
 
 def chisq(f1,f2):
     """Calculated L2 norm of difference between two concentration
