@@ -9,7 +9,8 @@ Ryan Holmes
 
 import numpy as np
 from scipy.sparse import spdiags,eye,csr_matrix
-from scipy.optimize import minimize
+#from scipy.optimize import minimize
+from scipy.optimize import leastsq, minimize
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 
@@ -28,6 +29,7 @@ x0 = [1., 0., 0.]
 # Scales
 xsc = [1.e-4,1.e-7,1.e-7]
 
+## Least Squares method:
 def fit3par(zF,trF,tf,sz):
     """Return parameters K0, Kh and w that best match the tracer
     profile trF as a function of zF at time tf where the initial
@@ -39,15 +41,42 @@ def fit3par(zF,trF,tf,sz):
     trO,tmp = trOBS(zF,trF)
 
     nt = tf // dt
-    res = minimize(cost, x0, args = (nt,trI, trO), method = 'nelder-mead',
+    res,success = leastsq(cost, x0, args = (nt,trI,trO))
+    res[0] = res[0]*xsc[0]
+    res[1] = res[1]*xsc[1]
+    res[2] = res[2]*xsc[2]
+    
+    return(res)
+
+def cost(x, nt, trI, trO):
+    """ Cost function """
+
+    tr = solve(x[0]*xsc[0],x[1]*xsc[1],x[2]*xsc[2],nt,trI)
+    
+    return(tr-trO)
+
+
+## Minimize method:
+def fit3parMN(zF,trF,tf,sz):
+    """Return parameters K0, Kh and w that best match the tracer
+    profile trF as a function of zF at time tf where the initial
+    tracer distribution is a gaussian about zF=0 with standard
+    deviation sz"""
+
+
+    trI,tmp = trINI(sz)
+    trO,tmp = trOBS(zF,trF)
+
+    nt = tf // dt
+    res = minimize(costMN, x0, args = (nt,trI, trO), method = 'nelder-mead',
                    options = {'xtol': 1e-4, 'disp': True})
     res.x[0] = res.x[0]*xsc[0]
     res.x[1] = res.x[1]*xsc[1]
     res.x[2] = res.x[2]*xsc[2]
     
     return(res)
-    
-def cost(x, nt, trI, trO):
+
+def costMN(x, nt, trI, trO):
     """ Cost function """
 
     tr = solve(x[0]*xsc[0],x[1]*xsc[1],x[2]*xsc[2],nt,trI)
