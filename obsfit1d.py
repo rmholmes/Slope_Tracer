@@ -51,10 +51,14 @@ def fit3par(zF,trF,tf,sz):
         reso.fun = costCHISQ(res[0], nt, trI, trO, h)
         reso.x = [res[0][0]*xsc[0],res[0][1]*xsc[1],res[0][2]*xsc[2]]
         reso.success = res[-1]
-        pcov = res[1] * ( reso.fun / (len(h)-3))
-        reso.xerr = []
-        for i in range(3):
-            reso.xerr.append(xsc[i]*np.absolute(pcov[i][i])**0.5)
+        reso.msg = res[-2]
+        if (res[1] is not None):
+            pcov = res[1] * ( reso.fun / (len(h)-3))
+            reso.xerr = []
+            for i in range(3):
+                reso.xerr.append(xsc[i]*np.absolute(pcov[i][i])**0.5)
+        else:
+            reso.xerr = [np.inf] * 3
         res = reso
     else:
         res = minimize(costCHISQ, x0, args = (nt,trI, trO, h), method = 'nelder-mead',
