@@ -40,6 +40,7 @@ def fit3par(zF,trF,tf,sz):
 
     h = get_grid(zF,trF)
     trI = trINI(sz,h)
+#    trI = trOBS(zF,trINI,h)
     trO = trOBS(zF,trF,h)
 
     nt = tf // dt
