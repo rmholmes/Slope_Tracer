@@ -32,15 +32,14 @@ xsc = [1.e-4,1.e-7,1.e-7]
 method = 0 # 0 = leastsq, 1 = minimize
 
 ## Least Squares method:
-def fit3par(zF,trF,tf,sz):
+def fit3par(zF,trF,trINI,tf,sz):
     """Return parameters K0, Kh and w that best match the tracer
     profile trF as a function of zF at time tf where the initial
     tracer distribution is a gaussian about zF=0 with standard
     deviation sz"""
 
     h = get_grid(zF,trF)
-    trI = trINI(sz,h)
-#    trI = trOBS(zF,trINI,h)
+    trI = trOBS(zF,trINI,h)
     trO = trOBS(zF,trF,h)
 
     nt = tf // dt
@@ -98,13 +97,13 @@ def solve(K0,Kh,w,nt,trI,h):
     
     return(tr)
 
-def plot(x,zF,trF,tf,sz):
+def plot(x,zF,trF,trINI,tf,sz):
     """ Plot initial, final and modelled tracer profiles for given
     parameters."""
 
     # Plot modelled and observed solutions:
     h = get_grid(zF,trF)
-    trI = trINI(sz,h)
+    trI = trOBS(zF,trINI,h)
     trO = trOBS(zF,trF,h)
     trM = solve(x[0],x[1],x[2],tf // dt, trI, h)
 
@@ -140,14 +139,6 @@ def trOBS(zF,trF,h):
     trO = trO / np.sum(trO*dh)
 
     return (trO)
-
-def trINI(sz,h):
-    """ Return initial tracer distribution """
-    dh = h[1]-h[0]
-    trI = np.exp(-h**2/2/sz**2)
-    trI = trI / np.sum(trI*dh)
-
-    return (trI)
 
 def D2(dh):
     """Centered 2nd derivative matrix"""
