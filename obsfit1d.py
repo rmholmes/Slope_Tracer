@@ -32,15 +32,14 @@ xsc = [1.e-4,1.e-7,1.e-7]
 method = 0 # 0 = leastsq, 1 = minimize
 
 ## Least Squares method:
-def fit3par(zF,trF,trINI,tf,sz):
+def fit3par(zF,trF,trINI,tf):
     """Return parameters K0, Kh and w that best match the tracer
-    profile trF as a function of zF at time tf where the initial
-    tracer distribution is a gaussian about zF=0 with standard
-    deviation sz"""
+    profile trF as a function of zF at time tf where trINI is the
+    initial tracer distribution"""
 
     h = get_grid(zF,trF)
-    trI = trOBS(zF,trINI,h)
-    trO = trOBS(zF,trF,h)
+    trI, tmp = trOBS(zF,trINI,h)
+    trO, tmp = trOBS(zF,trF,h)
 
     nt = tf // dt
     if (method == 0):
@@ -97,14 +96,27 @@ def solve(K0,Kh,w,nt,trI,h):
     
     return(tr)
 
-def plot(x,zF,trF,trINI,tf,sz):
+def trMOD(x,zF,trF,trINI,tf):
+    """Return tracer profile for given parameters and time on input
+    grid."""
+
+    # Plot modelled and observed solutions:
+    h = get_grid(zF,trF)
+    trI, scl = trOBS(zF,trINI,h)
+    trM = solve(x[0],x[1],x[2],tf // dt, trI, h)
+
+    trMscl = trSCL(zF,trM,h,scl)
+    
+    return(trMscl)
+
+def plot(x,zF,trF,trINI,tf):
     """ Plot initial, final and modelled tracer profiles for given
     parameters."""
 
     # Plot modelled and observed solutions:
     h = get_grid(zF,trF)
-    trI = trOBS(zF,trINI,h)
-    trO = trOBS(zF,trF,h)
+    trI, tmp = trOBS(zF,trINI,h)
+    trO, tmp = trOBS(zF,trF,h)
     trM = solve(x[0],x[1],x[2],tf // dt, trI, h)
 
     f = plt.figure(figsize=(5,5),facecolor='white')
@@ -136,7 +148,20 @@ def trOBS(zF,trF,h):
     in_range = np.logical_and(h>=np.min(zF),h <= np.max(zF))
     trO[in_range] = f(h[in_range])
 
-    trO = trO / np.sum(trO*dh)
+    scl = np.sum(trO*dh)
+    trO = trO / scl
+
+    return (trO, scl)
+
+def trSCL(zF,trM,h,scl):
+    """ Return modelled final tracer distribution on orginal grid"""
+    dh = h[1]-h[0]
+    f = interp1d(h,trM,fill_value=0.)
+    trO = np.zeros_like(zF)
+    in_range = np.logical_and(zF>=np.min(h),zF <= np.max(h))
+    trO[in_range] = f(zF[in_range])
+
+    trO = trO * scl
 
     return (trO)
 
