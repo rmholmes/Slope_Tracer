@@ -32,7 +32,7 @@ from dedalus.extras import plot_tools
 import logging
 logger = logging.getLogger(__name__)
 
-def run_sim(rundir,z0,AH,Kinf,ADV,slope,maxy):
+def run_sim(rundir,z0,AH,Kinf,ADV,slope,maxy,miny):
 
     # Input Grids and parameters ------------------------------------------------------------
     Ly, Lz = (1500000., 3000.) # units = 1m
@@ -150,7 +150,7 @@ def run_sim(rundir,z0,AH,Kinf,ADV,slope,maxy):
     # tr['g'] = np.exp(-(z-cz)**2/2/sz**2 -(y-cy)**2/2/sy**2)
 
     # Function of buoyancy:
-    hvs = np.copy(y);hvs[y <= maxy] = 1.;hvs[y > maxy] = 0. 
+    hvs = np.ones_like(y);hvs[y <= miny] = 0.;hvs[y >= maxy] = 0.
     tr['g'] = 0*z
     tr['g'] = np.exp(-(B['g']/N2/np.cos(theta) - cz)**2/2/sz**2)*hvs
 
@@ -262,9 +262,12 @@ def merge_move(rundir,outdir):
 #          1./200., 1/200., 1/200., 1./200., 1/200., 1/200.]
 # z0    = [18, 18,
 #          9, 9, 9, 9, 9, 9]
-maxy = [800000., 850000.]
-ADV = [0] * len(maxy)
-AH = [0.] * len(maxy)
+AH = [0., 0., 0., 
+     100., 100., 100.]
+ADV = [0, 1, 2, 
+       0, 1, 2]
+miny = [600000.] * len(AH)
+maxy = [1e10] * len(miny)
 slope = [1./200.] * len(maxy)
 z0 = [9] * len(maxy)
 Kinf  = [1.e-5] * len(AH)
@@ -276,7 +279,7 @@ rundir = '/home/z3500785/dedalus_rundir/';
 
 for ii in range(len(z0)):
 
-    run_sim(rundir,z0[ii],AH[ii],Kinf[ii],ADV[ii],slope[ii],maxy[ii])
+    run_sim(rundir,z0[ii],AH[ii],Kinf[ii],ADV[ii],slope[ii],maxy[ii],miny[ii])
 
     z0s = ('%1.4f' % z0[ii]).replace('.','p')
     AHs = '%03d' % AH[ii]
@@ -284,7 +287,8 @@ for ii in range(len(z0)):
     ADVs = '%01d' % ADV[ii]
     slopes = '%03d' % (1./slope[ii])
     maxys = '%03d' % (maxy[ii]/1000.)
-    outdir = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/prodruns_bIC30-5-19/ADV_%s_AH_%s_slope_%s_maxy_%s/' % (ADVs,AHs,slopes,maxys)
+    minys = '%03d' % (miny[ii]/1000.)
+    outdir = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/prodruns_bIC30-5-19/ADV_%s_AH_%s_slope_%s_maxy_%s_miny_%s/' % (ADVs,AHs,slopes,maxys,minys)
     print(outdir)
     merge_move(rundir,outdir)
 
