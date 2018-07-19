@@ -8,3 +8,7 @@ saveRUNS/
 \.ipynb_checkpoints/
 
 Analysis_Figures/
+
+__pycache__/
+
+.directory
