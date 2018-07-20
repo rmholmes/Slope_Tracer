@@ -1,18 +1,11 @@
 """
-Dedalus script for 2D tracer advection-diffusion on a slope
+Dedalus scripts for 2D tracer advection-diffusion on a slope
 
-This script uses a Fourier basis in the y direction with periodic boundary
+This code uses a Fourier basis in the y direction with periodic boundary
 conditions.
 
-This script can be ran serially or in parallel, and uses the built-in analysis
-framework to save data snapshots in HDF5 files.  The `merge.py` script in this
-folder can be used to merge distributed analysis sets from parallel runs,
-and the `plot_2d_series.py` script can be used to plot the snapshots.
-
-To run, merge, and plot using 4 processes, for instance, you could use:
-    $ mpiexec -n 4 python3 igw.py
-    $ mpiexec -n 4 python3 merge.py snapshots
-    $ mpiexec -n 4 python3 plot_2d_series.py snapshots/*.h5
+The functions can be ran serially or in parallel, and uses the built-in analysis
+framework to save data snapshots in HDF5 files.
 
 """
 import numpy as np
@@ -29,47 +22,76 @@ from dedalus.extras import flow_tools
 from dedalus.tools import post
 import pathlib
 from dedalus.extras import plot_tools
+import obsfit1d
 import logging
 logger = logging.getLogger(__name__)
 
-def run_sim(rundir,z0,AH,Kinf,ADV,slope):
+# Default parameters ------------------------------------------------------------------------
+# Input Grids
+Ly, Lz = (1500000., 3000.) # units = 1m
+ny, nz = (384, 192)
 
-    # Input Grids and parameters ------------------------------------------------------------
-    Ly, Lz = (1500000., 3000.) # units = 1m
-    ny, nz = (384, 192)
+# Physical parameters
+N2 = 1.0e-6
+slope = 1/400.0
+Pr0 = 1.0
+
+Kinf = 1.0e-5
+K0 = 1.0e-3
+d = 500.0
+
+AH = 0.0
+
+# Initial tracer parameters
+trItype = 1 # 1 = point, 2 = layer
+z0  = 0.5  # units of d
+sz0 = 3.   # units of Lz/nz
+
+c0  = 0.5  # units of Ly (point only)
+sy0 = 3.   # units of Ly/ny (point only)
+
+mxy0 = 0.  # units of Ly (layer only)
+mny0 = 1.  # units of Ly (layer only)
+
+# Advection type
+ADV = 2
+
+# Timing information
+lday = 1.0e5 # A "long-day" unit (86400 ~= 100000)
+dt=8*lday
+Ttot = 3200
+sfreq = 2
+
+accept_list = ['Ly','Lz','ny','nz','N2','slope','Pr0',
+               'Kinf','K0','d','AH','trItype','z0','sz0',
+               'c0','sy0','mxy0','mny0','ADV','lday','dt',
+               'Ttot','sfreq']
+default_input_dict = {}
+for i in accept_list:
+    exec('default_input_dict[i] = %s' % i)
+
+# Run a simulation -----------------------------------------------------------------------------------------
+def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
+               Kinf,K0,d,AH,trItype,z0,sz0,
+               c0,sy0,mxy0,mny0,ADV,lday,dt,
+               Ttot,sfreq):
 
     # Create bases and domain
     y_basis = de.Fourier('y', ny, interval=(0, Ly))#, dealias=3/2)
     z_basis = de.Chebyshev('z', nz, interval=(0, Lz))#, dealias=3/2)
     domain = de.Domain([y_basis, z_basis], grid_dtype=np.float64)
-
-    # Input fields --------------------------------------------------------------------------
     y = domain.grid(0)
     z = domain.grid(1)
 
-    N2 = 1.0e-6
-#    slope = 1/400.0
-    Pr0 = 1.0
-    theta = np.arctan(slope)
+    # Create input fields 
 
     # Isotropic Diffusivity
     K = domain.new_field()
     K.meta['y']['constant'] = True
     Kz = domain.new_field()
     Kz.meta['y']['constant'] = True
-
-#    Kinf = 1.0e-5
-    K0 = 1.0e-3
-    d = 500.0
     K['g'] = Kinf + (K0-Kinf)*np.exp(-z/d)
     K.differentiate('z',out=Kz)
-
-    # Isopycnal (horizontal) Diffusivity
-#    AH = 0.0
-
-    # Initial tracer location
-    cz = d*z0
-#    cz = d/2.
 
     # Upslope Velocity
     PSI = domain.new_field()
@@ -77,11 +99,11 @@ def run_sim(rundir,z0,AH,Kinf,ADV,slope):
     V = domain.new_field()
     V.meta['y']['constant'] = True
 
+    theta = np.arctan(slope)
     q0 = (N2*np.sin(theta)*np.sin(theta)/4.0/Pr0/K0/K0)**(1.0/4.0)
 
     PSI['g'] = np.cos(theta)/np.sin(theta)*(1.0-np.exp(-q0*z)*(np.cos(q0*z)+np.sin(q0*z)))
 
-#    ADV = 2
     if ADV == 2:
         PSI['g'] = PSI['g']*K['g']  # SML + BBL
     elif ADV == 1:
@@ -98,8 +120,6 @@ def run_sim(rundir,z0,AH,Kinf,ADV,slope):
     B['g'] = N2*np.sin(theta)*y + N2*np.cos(theta)*(z + np.exp(-q0*z)*np.cos(q0*z)/q0)
     f = domain.new_field();f.meta['y']['constant'] = True
     f['g'] = np.exp(-q0*z)*(np.cos(q0*z)+np.sin(q0*z))
-    # fz = domain.new_field();fz.meta['y']['constant'] = True
-    # fz['g'] = -2.*q0*np.exp(-q0*z)*np.sin(q0*z)
     Bz['g'] = N2*np.cos(theta)*(1.-f['g'])
 
     # Equations and Solver
@@ -144,31 +164,30 @@ def run_sim(rundir,z0,AH,Kinf,ADV,slope):
     # Initial condition:
     tr = solver.state['tr']
     trz = solver.state['trz']
-
-    # # Gaussian blob:
-    sy = Ly/ny*3.;sz = Lz/nz*3.;cy = Ly/2.;
-    tr['g'] = np.exp(-(z-cz)**2/2/sz**2 -(y-cy)**2/2/sy**2)
-
-    # Function of buoyancy:
-    # hvs = np.ones_like(y);hvs[y <= miny] = 0.;hvs[y >= maxy] = 0.
-    # tr['g'] = 0*z
-    # tr['g'] = np.exp(-(B['g']/N2/np.cos(theta) - cz)**2/2/sz**2)*hvs
-
+    
+    if (trItype == 1):
+        # Gaussian blob:
+        cz = d*z0;sy = Ly/ny*sy0;sz = Lz/nz*sz0;cy = Ly*c0;
+        tr['g'] = np.exp(-(z-cz)**2/2/sz**2 -(y-cy)**2/2/sy**2)
+    elif (trItype == 2):
+        # Function of buoyancy:
+        hvs = np.ones_like(y);hvs[y <= mny0*Ly] = 0.;hvs[y >= mxy0*Ly] = 0.
+        tr['g'] = 0*z
+        tr['g'] = np.exp(-(B['g']/N2/np.cos(theta) - cz)**2/2/sz**2)*hvs
+    else:
+        "ERROR: Must pick a valid initial tracer distribution"
+        return
     tr.differentiate('z',out=trz)
 
     # Integration parameters
-    lday = 1.0e5 # A "long-day" unit (86400 ~= 100000)
-    dt=8*lday
-    Ttot = 3200
     solver.stop_sim_time = np.inf
     solver.stop_wall_time = np.inf 
     solver.stop_iteration = Ttot*lday/dt
-    sfreq = 2
     Itot = solver.stop_iteration
 
     # Save parameters:
     np.savez(rundir + 'runparams',Ly=Ly,Lz=Lz,N2=N2,slope=slope,theta=theta,Pr0=Pr0,Kinf=Kinf,K0=K0,d=d,AH=AH,
-             q0=q0,By=By,sy=sy,sz=sz,cy=cy,cz=cz,lday=lday,dt=dt,sfreq=sfreq,Itot=Itot,Ttot=Ttot)
+             q0=q0,By=By,sy=sy,sz=sz,cy=cy,cz=cz,lday=lday,dt=dt,sfreq=sfreq,Itot=Itot,Ttot=Ttot,mxy0=mxy0,mny0=mny0)
 
     ## Analysis
     # Input fields file:
@@ -240,53 +259,24 @@ def merge_move(rundir,outdir):
     post.merge_process_files(rundir + "ifields", cleanup=True)
     set_paths = list(pathlib.Path(rundir + "ifields").glob("ifields_s*.h5"))
     post.merge_sets(rundir + "ifields/ifields.h5", set_paths, cleanup=True)
-    
-# prodruns24-5-19 Input parameters:
-#    z0    (initial tracer patch height cz = z0*d)
-#    AH    (isopycnal diffusivity)
-#    Kinf  (far-field isotropic diffusivity)
-#    ADV   (ADV on/off, 0 = no adv., 1 = BBL only, 2 = BBL and SML)
-#    slope (slope)
 
-# z0    = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
-#          1.0, 2.0, 1.0, 2.0, 1.0, 2.0]
-
-# AH    = [0.0, 1.0, 5.0, 10.0, 50.0, 100.0,
-#          10.0, 10.0, 50.0, 50.0, 100.0, 100.0]
-
-# ADV = [2, 2,
-#        0, 1, 2, 0, 1, 2]
-# AH  = [0., 100.,
-#        0., 0., 0., 100., 100., 100.]
-# slope = [1./100., 1/100.,
-#          1./200., 1/200., 1/200., 1./200., 1/200., 1/200.]
-# z0    = [18, 18,
-#          9, 9, 9, 9, 9, 9]
-AH = [100., 100.]
-ADV = [0, 1]
-#miny = [600000.] * len(AH)
-#maxy = [1e10] * len(miny)
-slope = [1./400.] * len(AH)
-z0 = [0.5] * len(AH)
-Kinf  = [1.e-5] * len(AH)
 comm = MPI.COMM_WORLD
 nprocs = comm.Get_size()
 rank   = comm.Get_rank()
-
 rundir = '/home/z3500785/dedalus_rundir/';
+outbase = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/';
 
-for ii in range(len(z0)):
-
-    run_sim(rundir,z0[ii],AH[ii],Kinf[ii],ADV[ii],slope[ii])#,maxy[ii],miny[ii])
-
-    z0s = ('%1.4f' % z0[ii]).replace('.','p')
-    AHs = '%03d' % AH[ii]
-    Kinfs = ('%01d' % np.log10(Kinf[ii])).replace('-','m')
-    ADVs = '%01d' % ADV[ii]
-    slopes = '%03d' % (1./slope[ii])
-    # maxys = '%03d' % (maxy[ii]/1000.)
-    # minys = '%03d' % (miny[ii]/1000.)
-    outdir = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/prodruns_wide30-5-19/z0_%s_AH_%s_ADV_%s/' % (z0s,AHs,ADVs)
+# Test runs:
+AHs = [5.,5.,10.,10.,50.,50.]
+ADVs = [0,1,0,1,0,1]
+outfold = outbase + 'prodruns_wide30-5-19/'
+for ii in range(len(AHs)):
+    
+    input_dict = default_input_dict.copy()
+    input_dict['AH'] = AHs[ii]
+    input_dict['ADV'] = ADVs[ii]
+    run_sim(rundir,**input_dict)
+    outdir = outfold + 'z0_0p5000_AH_%03d_ADV_%01d/' % (AHs[ii],ADVs[ii])
     print(outdir)
     merge_move(rundir,outdir)
 
@@ -298,4 +288,4 @@ for ii in range(len(z0)):
         shutil.rmtree(rundir + 'snapshots/');
         shutil.rmtree(rundir + 'ifields/');
 
-        
+
