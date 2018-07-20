@@ -267,8 +267,8 @@ rundir = '/home/z3500785/dedalus_rundir/';
 outbase = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/';
 
 # Test runs:
-AHs = [5.,5.,10.,10.,50.,50.]
-ADVs = [0,1,0,1,0,1]
+AHs = [30.,30.,30.,75.,75.,75.]
+ADVs = [0,1,2,0,1,2]
 outfold = outbase + 'prodruns_wide30-5-19/'
 for ii in range(len(AHs)):
     
