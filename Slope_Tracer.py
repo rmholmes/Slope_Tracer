@@ -13,6 +13,7 @@ import h5py
 import matplotlib
 import shutil
 import time
+import matplotlib.pyplot as plt
 from mpi4py import MPI
 from scipy.special import erf
 import os
@@ -74,7 +75,7 @@ for i in accept_list:
 def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
                Kinf,K0,d,AH,trItype,z0,sz0,
                c0,sy0,mxy0,mny0,ADV,lday,dt,
-               Ttot,sfreq):
+               Ttot,sfreq,plot):
 
     # Create bases and domain
     y_basis = de.Fourier('y', ny, interval=(0, Ly))#, dealias=3/2)
@@ -145,10 +146,14 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     # problem.substitutions['ByBzdd'] = 'fz*(cotth*(1-f)**2.-tanth)/(tanth+cotth*(1-f)**2.)**2.'
     # problem.substitutions['By2dd'] = '2*(1-f)*fz/(1+cotth**2.*(1-f)**2.)**2.'
     # problem.add_equation("dt(tr) + V*dy(tr) - (AH*Bz2d + K)*d(tr,y=2) + 2*AH*ByBzd*dy(trz) + AH*ByBzdd*dy(tr) - (AH*By2dd+Kz)*trz - (AH*By2d+K)*dz(trz) = 0.")
+    # # # Flux-formulation:
+    # problem.substitutions['Fy'] = '(AH*Bz*Bz/(Bz*Bz+By*By) + K)*dy(tr) - AH*By*Bz/(Bz*Bz+By*By)*trz'
+    # problem.substitutions['Fz'] = '(AH*By*By/(Bz*Bz+By*By) + K)*trz - AH*By*Bz/(Bz*Bz+By*By)*dy(tr)'
+    # problem.add_equation("dt(tr)+V*dy(tr) - dy(Fy) - dz(Fz) = 0")
     # Comments:
     # - Try formulating equation with the flux
     # - Try the trick for each individual coefficient.
-    # # Only Interior buoyancy influences AH (but full B used for binning):
+    # Only Interior buoyancy influences AH (but full B used for binning):
     problem.parameters['costh'] = np.cos(theta)
     problem.parameters['sinth'] = np.sin(theta)
     problem.add_equation("dt(tr) + V*dy(tr) - (AH*costh**2. + K)*d(tr,y=2) + 2*AH*sinth*costh*dy(trz) - Kz*trz - (AH*sinth**2.+K)*dz(trz) = 0.")
@@ -228,6 +233,25 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     snapshots.add_task("integ(integ(tr*V*y,'z'),'y')", layout='g', name = 'Vytr')
     snapshots.add_task("integ(integ(tr*V*z,'z'),'y')", layout='g', name = 'Vztr')
 
+    # Plotting:
+    if plot:
+        f, ax = plt.subplots(figsize=(10,5))
+        f.set_facecolor('white')
+        ax.set_xlabel('true y (km)');ax.set_ylabel('true z (m)')
+        y = domain.grid(0,scales=domain.dealias)
+        z = domain.grid(1,scales=domain.dealias)
+        ym, zm = np.meshgrid(y,z)
+        zt = np.cos(theta)*zm + np.sin(theta)*ym
+        yt = -np.sin(theta)*zm + np.cos(theta)*ym
+        p = ax.pcolormesh(yt/1.0e3, zt, tr['g'].T/np.max(tr['g']), cmap='RdBu_r', vmin=0., vmax=1.);
+        Buo = N2*np.sin(theta)*ym + N2*np.cos(theta)*(zm + np.exp(-q0*zm)*np.cos(q0*zm)/q0)
+        ax.contour(yt/1.0e3, zt, Buo, 30, colors='k',linewidth=1)
+        ax.plot(y/1.0e3, slope*y,'k-', linewidth=4)
+        plt.colorbar(p, ax = ax)
+        ax.set_xlim([0,Ly/1.e3]);ax.set_ylim([0.,Lz + slope*Ly]);
+        ax.set_facecolor('k')
+        ax.set_title('Normalized Tracer Concentration')
+
     # Main loop
     try:
         logger.info('Starting loop')
@@ -235,13 +259,21 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
         while solver.ok:
             #        dt = CFL.compute_dt()
             solver.step(dt)
-            if (solver.iteration-1) % 10 == 0:
+            if (plot and (solver.iteration-1) % 5 == 0):
+                p.set_array(np.ravel(tr['g'][:-1,:-1].T/np.max(tr['g'])))
+                display.clear_output()
+                display.display(f)
+            if (solver.iteration-1) % 2 == 0:
                 logger.info('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
     except:
         logger.error('Exception raised, triggering end of main loop.')
         raise
     finally:
         end_time = time.time()
+        if plot:
+            p.set_array(np.ravel(tr['g'][:-1,:-1].T/np.max(tr['g'])))
+            display.clear_output()
+            display.display(f)
 
         logger.info('Iterations: %i' %solver.iteration)
         logger.info('Sim end time: %f' %solver.sim_time)
@@ -259,33 +291,38 @@ def merge_move(rundir,outdir):
     post.merge_process_files(rundir + "ifields", cleanup=True)
     set_paths = list(pathlib.Path(rundir + "ifields").glob("ifields_s*.h5"))
     post.merge_sets(rundir + "ifields/ifields.h5", set_paths, cleanup=True)
-
-comm = MPI.COMM_WORLD
-nprocs = comm.Get_size()
-rank   = comm.Get_rank()
-rundir = '/home/z3500785/dedalus_rundir/';
-outbase = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/';
-
-# Test runs:
-AHs = [30.,30.,30.,75.,75.,75.]
-ADVs = [0,1,2,0,1,2]
-outfold = outbase + 'prodruns_wide30-5-19/'
-for ii in range(len(AHs)):
     
-    input_dict = default_input_dict.copy()
-    input_dict['AH'] = AHs[ii]
-    input_dict['ADV'] = ADVs[ii]
-    run_sim(rundir,**input_dict)
-    outdir = outfold + 'z0_0p5000_AH_%03d_ADV_%01d/' % (AHs[ii],ADVs[ii])
-    print(outdir)
-    merge_move(rundir,outdir)
+    
+if __name__ == "__main__":
 
-    if rank == 0:
-        os.makedirs(outdir, exist_ok=True)
-        shutil.move(rundir + 'snapshots/snapshots.h5',outdir + 'snapshots.h5');
-        shutil.move(rundir + 'ifields/ifields.h5',outdir + 'ifields.h5');
-        shutil.move(rundir + 'runparams.npz',outdir + 'runparams.npz');
-        shutil.rmtree(rundir + 'snapshots/');
-        shutil.rmtree(rundir + 'ifields/');
+    comm = MPI.COMM_WORLD
+    nprocs = comm.Get_size()
+    rank   = comm.Get_rank()
+    rundir = '/home/z3500785/dedalus_rundir/';
+    outbase = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/';
+
+    plot = False
+    # Test runs:
+    AHs = [0.]
+    ADVs = [2]
+    outfold = outbase + 'test/'
+    for ii in range(len(AHs)):
+
+        input_dict = default_input_dict.copy()
+        input_dict['AH'] = AHs[ii]
+        input_dict['ADV'] = ADVs[ii]
+        input_dict['Ttot'] = 200
+        run_sim(rundir,plot=plot,**input_dict)
+        outdir = outfold + 'z0_0p5000_AH_%03d_ADV_%01d/' % (AHs[ii],ADVs[ii])
+        print(outdir)
+        merge_move(rundir,outdir)
+
+        if rank == 0:
+            os.makedirs(outdir, exist_ok=True)
+            shutil.move(rundir + 'snapshots/snapshots.h5',outdir + 'snapshots.h5');
+            shutil.move(rundir + 'ifields/ifields.h5',outdir + 'ifields.h5');
+            shutil.move(rundir + 'runparams.npz',outdir + 'runparams.npz');
+            shutil.rmtree(rundir + 'snapshots/');
+            shutil.rmtree(rundir + 'ifields/');
 
 
