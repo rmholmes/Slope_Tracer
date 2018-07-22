@@ -146,16 +146,18 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     # problem.substitutions['ByBzdd'] = 'fz*(cotth*(1-f)**2.-tanth)/(tanth+cotth*(1-f)**2.)**2.'
     # problem.substitutions['By2dd'] = '2*(1-f)*fz/(1+cotth**2.*(1-f)**2.)**2.'
     # problem.add_equation("dt(tr) + V*dy(tr) - (AH*Bz2d + K)*d(tr,y=2) + 2*AH*ByBzd*dy(trz) + AH*ByBzdd*dy(tr) - (AH*By2dd+Kz)*trz - (AH*By2d+K)*dz(trz) = 0.")
-    # # # Flux-formulation:
-    # problem.substitutions['Fy'] = '(AH*Bz*Bz/(Bz*Bz+By*By) + K)*dy(tr) - AH*By*Bz/(Bz*Bz+By*By)*trz'
-    # problem.substitutions['Fz'] = '(AH*By*By/(Bz*Bz+By*By) + K)*trz - AH*By*Bz/(Bz*Bz+By*By)*dy(tr)'
-    # problem.add_equation("dt(tr)+V*dy(tr) - dy(Fy) - dz(Fz) = 0")
-    # Comments:
-    # - Try formulating equation with the flux
-    # - Try the trick for each individual coefficient.
-    # Only Interior buoyancy influences AH (but full B used for binning):
     problem.parameters['costh'] = np.cos(theta)
     problem.parameters['sinth'] = np.sin(theta)
+    # # Flux-formulation:
+    # # Comments:
+    # # Next thing to try:
+    # # - Formula Bz^2/|Grad B|^2, By^2/|Grad B|^2 and Bz*By/|Grad B|^2 analytically and approximate with polynomial form.
+    # problem.substitutions['FyBB'] = 'AH*(Bz*Bz/(Bz*Bz+By*By)-costh**2.)*dy(tr) - AH*(By*Bz/(Bz*Bz+By*By)-sinth*costh)*trz'
+    # problem.substitutions['FzBB'] = 'AH*(By*By/(Bz*Bz+By*By)-sinth**2.)*trz - AH*(By*Bz/(Bz*Bz+By*By)-sinth*costh)*dy(tr)'
+    # problem.substitutions['FyIN'] = '(AH*costh**2. + K)*dy(tr) - AH*sinth*costh*trz'
+    # problem.substitutions['FzIN'] = '(AH*sinth**2. + K)*trz - AH*sinth*costh*dy(tr)'
+    # problem.add_equation("dt(tr) + V*dy(tr) - dy(FyIN) - dz(FzIN) = dy(FyBB) + dz(FzBB)")
+    # Only Interior buoyancy influences AH (but full B used for binning):
     problem.add_equation("dt(tr) + V*dy(tr) - (AH*costh**2. + K)*d(tr,y=2) + 2*AH*sinth*costh*dy(trz) - Kz*trz - (AH*sinth**2.+K)*dz(trz) = 0.")
 
     problem.add_equation("trz - dz(tr) = 0")
@@ -205,6 +207,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     # Snapshots file:
     snapshots = solver.evaluator.add_file_handler(rundir + 'snapshots', iter=sfreq, max_writes=20000)
     snapshots.add_system(solver.state, layout='g')
+    snapshots.add_task("tr*V", layout='g', name = 'advFy')
     snapshots.add_task("integ(tr,'y')", layout='g', name = 'ym0')
     snapshots.add_task("integ(tr*y,'y')", layout='g', name = 'ym1')
     snapshots.add_task("integ(tr*y*y,'y')", layout='g', name = 'ym2')
@@ -245,7 +248,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
         yt = -np.sin(theta)*zm + np.cos(theta)*ym
         p = ax.pcolormesh(yt/1.0e3, zt, tr['g'].T/np.max(tr['g']), cmap='RdBu_r', vmin=0., vmax=1.);
         Buo = N2*np.sin(theta)*ym + N2*np.cos(theta)*(zm + np.exp(-q0*zm)*np.cos(q0*zm)/q0)
-        ax.contour(yt/1.0e3, zt, Buo, 30, colors='k',linewidth=1)
+        ax.contour(yt/1.0e3, zt, Buo, 30, colors='k')
         ax.plot(y/1.0e3, slope*y,'k-', linewidth=4)
         plt.colorbar(p, ax = ax)
         ax.set_xlim([0,Ly/1.e3]);ax.set_ylim([0.,Lz + slope*Ly]);
