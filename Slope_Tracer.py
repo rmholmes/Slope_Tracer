@@ -306,17 +306,18 @@ if __name__ == "__main__":
 
     plot = False
     # Test runs:
-    AHs = [0.]
-    ADVs = [2]
-    outfold = outbase + 'test/'
+    AHs = [10.,100.]
+    ADVs = [0,0]
+    Kinfs = [1.e-3,1.e-3];
+    outfold = outbase + 'prodruns_wide30-5-19/'
     for ii in range(len(AHs)):
 
         input_dict = default_input_dict.copy()
         input_dict['AH'] = AHs[ii]
         input_dict['ADV'] = ADVs[ii]
-        input_dict['Ttot'] = 200
+        input_dict['Kinf'] = Kinfs[ii]
         run_sim(rundir,plot=plot,**input_dict)
-        outdir = outfold + 'z0_0p5000_AH_%03d_ADV_%01d/' % (AHs[ii],ADVs[ii])
+        outdir = outfold + 'z0_0p5000_AH_%03d_ADV_%01d_Kinf_%s/' % (AHs[ii],ADVs[ii],('%01d' % np.log10(Kinfs[ii])).replace('-','m'))
         print(outdir)
         merge_move(rundir,outdir)
 
