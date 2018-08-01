@@ -306,9 +306,9 @@ if __name__ == "__main__":
 
     plot = False
     # Test runs:
-    AHs = [10.,100.]
-    ADVs = [0,0]
-    Kinfs = [1.e-3,1.e-3];
+    AHs = [0.]#10.,100.]
+    ADVs = [0]#,0]
+    Kinfs = [1.e-3]#,1.e-3];
     outfold = outbase + 'prodruns_wide30-5-19/'
     for ii in range(len(AHs)):
 
