@@ -1,3 +1,4 @@
+
 """
 Dedalus scripts for 2D tracer advection-diffusion on a slope
 
@@ -51,8 +52,8 @@ sz0 = 3.   # units of Lz/nz
 c0  = 0.5  # units of Ly (point only)
 sy0 = 3.   # units of Ly/ny (point only)
 
-mxy0 = 0.  # units of Ly (layer only)
-mny0 = 1.  # units of Ly (layer only)
+mny0 = 0.  # units of Ly (layer only)
+mxy0 = 1.  # units of Ly (layer only)
 
 # Advection type
 ADV = 2
@@ -172,9 +173,9 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     tr = solver.state['tr']
     trz = solver.state['trz']
     
+    cz = d*z0;sy = Ly/ny*sy0;sz = Lz/nz*sz0;cy = Ly*c0;
     if (trItype == 1):
         # Gaussian blob:
-        cz = d*z0;sy = Ly/ny*sy0;sz = Lz/nz*sz0;cy = Ly*c0;
         tr['g'] = np.exp(-(z-cz)**2/2/sz**2 -(y-cy)**2/2/sy**2)
     elif (trItype == 2):
         # Function of buoyancy:
@@ -306,18 +307,22 @@ if __name__ == "__main__":
 
     plot = False
     # Test runs:
-    AHs = [0.]#10.,100.]
-    ADVs = [0]#,0]
-    Kinfs = [1.e-3]#,1.e-3];
-    outfold = outbase + 'prodruns_wide30-5-19/'
+    AHs = [150.]*3 + [20.]*3 + [40.]*3 + [60.]*3 + [90.]*3
+    ADVs = [0,1,2] * 5
+    slopes = [1/200.] * 15
+    
+    outfold = outbase + 'prodruns_bIC30-5-19/'
     for ii in range(len(AHs)):
 
         input_dict = default_input_dict.copy()
         input_dict['AH'] = AHs[ii]
         input_dict['ADV'] = ADVs[ii]
-        input_dict['Kinf'] = Kinfs[ii]
+        input_dict['trItype'] = 2
+        input_dict['slope'] = slopes[ii]
+        input_dict['mny0'] = 0.4
+        input_dict['z0'] = 9.
         run_sim(rundir,plot=plot,**input_dict)
-        outdir = outfold + 'z0_0p5000_AH_%03d_ADV_%01d_Kinf_%s/' % (AHs[ii],ADVs[ii],('%01d' % np.log10(Kinfs[ii])).replace('-','m'))
+        outdir = outfold + 'ADV_%01d_AH_%03d_slope_%03d_maxy_10000000_miny_600/' % (ADVs[ii],AHs[ii],1./slopes[ii])
         print(outdir)
         merge_move(rundir,outdir)
 
