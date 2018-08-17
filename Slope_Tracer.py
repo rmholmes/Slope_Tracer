@@ -307,22 +307,18 @@ if __name__ == "__main__":
 
     plot = False
     # Test runs:
-    AHs = [150.]*3 + [20.]*3 + [40.]*3 + [60.]*3 + [90.]*3
-    ADVs = [0,1,2] * 5
-    slopes = [1/200.] * 15
+    AHs = [150.]*3 + [200.]*3 + [125.]*3 + [175.]*3 + [90.]*3 + [60.]*3 + [40.]*3 + [20.]*3
+    ADVs = [0,1,2] * 8
     
-    outfold = outbase + 'prodruns_bIC30-5-19/'
+    outfold = outbase + 'prodruns_wide30-5-19/'
     for ii in range(len(AHs)):
 
         input_dict = default_input_dict.copy()
         input_dict['AH'] = AHs[ii]
         input_dict['ADV'] = ADVs[ii]
-        input_dict['trItype'] = 2
-        input_dict['slope'] = slopes[ii]
-        input_dict['mny0'] = 0.4
-        input_dict['z0'] = 9.
+        input_dict['Ttot'] = 1800
         run_sim(rundir,plot=plot,**input_dict)
-        outdir = outfold + 'ADV_%01d_AH_%03d_slope_%03d_maxy_10000000_miny_600/' % (ADVs[ii],AHs[ii],1./slopes[ii])
+        outdir = outfold + 'z0_0p5000_AH_%03d_ADV_%01d/' % (AHs[ii],ADVs[ii])
         print(outdir)
         merge_move(rundir,outdir)
 
