@@ -123,13 +123,10 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     PSI.differentiate('z',out=V)
 
     # BBL fluxes from thickness criteria:
-    hvs = np.ones_like(z);hvs[z > np.pi/q0] = 0.;
-    KbblT = domain.new_field()
-    KbblT.meta['y']['constant'] = True
-    VbblT = domain.new_field()
-    VbblT.meta['y']['constant'] = True
-    KbblT['g'] = K['g']*hvs
-    VbblT = V['g']*hvs
+    Hbbl = domain.new_field()
+    Hbbl.meta['y']['constant'] = True
+    Hbbl['g'] = np.ones_like(z)
+    Hbbl['g'][z > np.pi/q0] = 0.
 
     # Buoyancy field:
     By = N2*np.sin(theta)
@@ -155,8 +152,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     problem.parameters['Bz'] = Bz
     problem.parameters['Bzp'] = Bzp
     problem.parameters['B'] = B
-    problem.parameters['KbblT'] = KbblT
-    problem.parameters['VbblT'] = VbblT
+    problem.parameters['Hbbl'] = Hbbl
 
     # # Full Equation with analytic derivatives:
     # problem.parameters['tanth'] = np.tan(theta)
@@ -270,20 +266,20 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     # B COM terms:
     snapshots.add_task("integ(integ(tr*V*By,'z'),'y')", layout='g', name = 'VtrBy')
     snapshots.add_task("integ(integ(tr*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBy')
-    snapshots.add_task("integ(integ(tr*VbblT*By,'z'),'y')", layout='g', name = 'VbblTtrBy')
+    snapshots.add_task("integ(integ(tr*V*Hbbl*By,'z'),'y')", layout='g', name = 'VbblTtrBy')
     snapshots.add_task("integ(integ(tr*K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtrtryBy')
     snapshots.add_task("integ(integ(tr*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrtrzBz')
-    snapshots.add_task("integ(integ(tr*KbblT*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtrtryBy')
-    snapshots.add_task("integ(integ(tr*KbblT*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrtrzBz')
+    snapshots.add_task("integ(integ(tr*K*Hbbl*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtrtryBy')
+    snapshots.add_task("integ(integ(tr*K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrtrzBz')
 
     # B VAR terms:
     snapshots.add_task("integ(integ(tr*B*V*By,'z'),'y')", layout='g', name = 'VtrBBy')
     snapshots.add_task("integ(integ(tr*B*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBBy')
-    snapshots.add_task("integ(integ(tr*B*VbblT*By,'z'),'y')", layout='g', name = 'VbblTtrBBy')
+    snapshots.add_task("integ(integ(tr*B*V*Hbbl*By,'z'),'y')", layout='g', name = 'VbblTtrBBy')
     snapshots.add_task("integ(integ(tr*B*K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtrtryBBy')
     snapshots.add_task("integ(integ(tr*B*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrtrzBBz')
-    snapshots.add_task("integ(integ(tr*B*KbblT*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtrtryBBy')
-    snapshots.add_task("integ(integ(tr*B*KbblT*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrtrzBBz')
+    snapshots.add_task("integ(integ(tr*B*K*Hbbl*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtrtryBBy')
+    snapshots.add_task("integ(integ(tr*B*K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrtrzBBz')
 
     # Approximation check terms:
     snapshots.add_task("integ(integ(AH*sinth*Bzp*(trz*sinth-dy(tr)*costh),'z'),'y')", layout='g', name = 'AHbm1')
@@ -347,7 +343,7 @@ def merge_move(rundir,outdir):
     post.merge_process_files(rundir + "ifields", cleanup=True)
     set_paths = list(pathlib.Path(rundir + "ifields").glob("ifields_s*.h5"))
     post.merge_sets(rundir + "ifields/ifields.h5", set_paths, cleanup=True)
-    
+
     
 if __name__ == "__main__":
 
@@ -390,6 +386,13 @@ if __name__ == "__main__":
     ADVs.extend([0] * 4)
     z0s.extend([0.5] * 4)
     slopes.extend([1./400.] * 4)
+
+    # # Test run:
+    # AHs = [100.]
+    # ADVs = [2]
+    # slopes = [1./400.]
+    # Kinfs = [1.e-5]
+    # z0s = [0.5]
     
     for ii in range(len(AHs)):
 
