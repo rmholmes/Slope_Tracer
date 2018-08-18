@@ -139,6 +139,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     problem.parameters['Kz'] = Kz
     problem.parameters['AH'] = AH
     problem.parameters['V'] = V
+    problem.parameters['Vbbl'] = Vbbl
     problem.parameters['By'] = By
     problem.parameters['Bz'] = Bz
     problem.parameters['B'] = B
@@ -256,13 +257,13 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     snapshots.add_task("integ(integ(tr*V*By,'z'),'y')", layout='g', name = 'VtrBy')
     snapshots.add_task("integ(integ(tr*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBy')
     snapshots.add_task("integ(integ(tr*K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtrtryBy')
-    snapshots.add_task("integ(integ(tr*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrtryBy')
+    snapshots.add_task("integ(integ(tr*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrtrzBz')
 
     # B VAR terms:
     snapshots.add_task("integ(integ(tr*B*V*By,'z'),'y')", layout='g', name = 'VtrBBy')
     snapshots.add_task("integ(integ(tr*B*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBBy')
     snapshots.add_task("integ(integ(tr*B*K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtrtryBBy')
-    snapshots.add_task("integ(integ(tr*B*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrtryBBy')
+    snapshots.add_task("integ(integ(tr*B*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrtrzBBz')
 
     # Plotting:
     if plot:
