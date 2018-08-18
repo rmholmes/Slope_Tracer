@@ -122,14 +122,25 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     PSIbbl.differentiate('z',out=Vbbl)
     PSI.differentiate('z',out=V)
 
+    # BBL fluxes from thickness criteria:
+    hvs = np.ones_like(z);hvs[z > np.pi/q0] = 0.;
+    KbblT = domain.new_field()
+    KbblT.meta['y']['constant'] = True
+    VbblT = domain.new_field()
+    VbblT.meta['y']['constant'] = True
+    KbblT['g'] = K['g']*hvs
+    VbblT = V['g']*hvs
+
     # Buoyancy field:
     By = N2*np.sin(theta)
     Bz = domain.new_field();Bz.meta['y']['constant'] = True
+    Bzp = domain.new_field();Bzp.meta['y']['constant'] = True
     B = domain.new_field()
     B['g'] = N2*np.sin(theta)*y + N2*np.cos(theta)*(z + np.exp(-q0*z)*np.cos(q0*z)/q0)
     f = domain.new_field();f.meta['y']['constant'] = True
     f['g'] = np.exp(-q0*z)*(np.cos(q0*z)+np.sin(q0*z))
-    Bz['g'] = N2*np.cos(theta)*(1.-f['g'])
+    Bzp['g'] = -N2*np.cos(theta)*f['g']
+    Bz['g'] = N2*np.cos(theta) + Bzp['g']
 
     # Equations and Solver
     problem = de.IVP(domain, variables=['tr','trz'])
@@ -142,7 +153,10 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     problem.parameters['Vbbl'] = Vbbl
     problem.parameters['By'] = By
     problem.parameters['Bz'] = Bz
+    problem.parameters['Bzp'] = Bzp
     problem.parameters['B'] = B
+    problem.parameters['KbblT'] = KbblT
+    problem.parameters['VbblT'] = VbblT
 
     # # Full Equation with analytic derivatives:
     # problem.parameters['tanth'] = np.tan(theta)
@@ -256,15 +270,25 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     # B COM terms:
     snapshots.add_task("integ(integ(tr*V*By,'z'),'y')", layout='g', name = 'VtrBy')
     snapshots.add_task("integ(integ(tr*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBy')
+    snapshots.add_task("integ(integ(tr*VbblT*By,'z'),'y')", layout='g', name = 'VbblTtrBy')
     snapshots.add_task("integ(integ(tr*K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtrtryBy')
     snapshots.add_task("integ(integ(tr*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrtrzBz')
+    snapshots.add_task("integ(integ(tr*KbblT*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtrtryBy')
+    snapshots.add_task("integ(integ(tr*KbblT*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrtrzBz')
 
     # B VAR terms:
     snapshots.add_task("integ(integ(tr*B*V*By,'z'),'y')", layout='g', name = 'VtrBBy')
     snapshots.add_task("integ(integ(tr*B*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBBy')
+    snapshots.add_task("integ(integ(tr*B*VbblT*By,'z'),'y')", layout='g', name = 'VbblTtrBBy')
     snapshots.add_task("integ(integ(tr*B*K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtrtryBBy')
     snapshots.add_task("integ(integ(tr*B*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrtrzBBz')
+    snapshots.add_task("integ(integ(tr*B*KbblT*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtrtryBBy')
+    snapshots.add_task("integ(integ(tr*B*KbblT*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrtrzBBz')
 
+    # Approximation check terms:
+    snapshots.add_task("integ(integ(AH*sinth*Bzp*(trz*sinth-dy(tr)*costh),'z'),'y')", layout='g', name = 'AHbm1')
+    snapshots.add_task("integ(integ(AH*sinth*B*Bzp*(trz*sinth-dy(tr)*costh),'z'),'y')", layout='g', name = 'AHbm2')
+    
     # Plotting:
     if plot:
         f, ax = plt.subplots(figsize=(10,5))
