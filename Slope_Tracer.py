@@ -100,11 +100,16 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     PSI.meta['y']['constant'] = True
     V = domain.new_field()
     V.meta['y']['constant'] = True
+    PSIbbl = domain.new_field()
+    PSIbbl.meta['y']['constant'] = True
+    Vbbl = domain.new_field()
+    Vbbl.meta['y']['constant'] = True
 
     theta = np.arctan(slope)
     q0 = (N2*np.sin(theta)*np.sin(theta)/4.0/Pr0/K0/K0)**(1.0/4.0)
 
     PSI['g'] = np.cos(theta)/np.sin(theta)*(1.0-np.exp(-q0*z)*(np.cos(q0*z)+np.sin(q0*z)))
+    PSIbbl['g'] = PSI['g']*K0
 
     if ADV == 2:
         PSI['g'] = PSI['g']*K['g']  # SML + BBL
@@ -112,7 +117,9 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
         PSI['g'] = PSI['g']*K0      # BBL
     else:
         PSI['g'] = 0.0              # No ADV
+        PSIbbl['g'] = 0.0
 
+    PSIbbl.differentiate('z',out=Vbbl)
     PSI.differentiate('z',out=V)
 
     # Buoyancy field:
@@ -209,33 +216,53 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     snapshots = solver.evaluator.add_file_handler(rundir + 'snapshots', iter=sfreq, max_writes=20000)
     snapshots.add_system(solver.state, layout='g')
     snapshots.add_task("tr*V", layout='g', name = 'advFy')
+
+    # Single moments:
     snapshots.add_task("integ(tr,'y')", layout='g', name = 'ym0')
     snapshots.add_task("integ(tr*y,'y')", layout='g', name = 'ym1')
     snapshots.add_task("integ(tr*y*y,'y')", layout='g', name = 'ym2')
     snapshots.add_task("integ(tr,'z')", layout='g', name = 'zm0')
     snapshots.add_task("integ(tr*z,'z')", layout='g', name = 'zm1')
     snapshots.add_task("integ(tr*z*z,'z')", layout='g', name = 'zm2')
+
+    # double moments:
     snapshots.add_task("integ(integ(tr,'y'),'z')", layout = 'g', name = 'trT')
+
     snapshots.add_task("integ(integ(trz,'y'),'z')", layout = 'g', name = 'trzT')
     snapshots.add_task("integ(integ(abs(trz),'y'),'z')", layout = 'g', name = 'atrzT')
     snapshots.add_task("integ(integ(trz*z,'y'),'z')", layout = 'g', name = 'trzzT')
     snapshots.add_task("integ(integ(trz*y,'y'),'z')", layout = 'g', name = 'trzyT')
+    
     snapshots.add_task("integ(integ(tr*B,'y'),'z')", layout = 'g', name = 'bm1i')
     snapshots.add_task("integ(integ(tr*B*B,'y'),'z')", layout = 'g', name = 'bm2i')
     snapshots.add_task("integ(integ(tr*B*B*B,'y'),'z')", layout = 'g', name = 'bm3i')
     snapshots.add_task("integ(integ(tr*B*B*B*B,'y'),'z')", layout = 'g', name = 'bm4i')
+    
     snapshots.add_task("integ(integ(tr*y,'y'),'z')", layout='g', name = 'ym1i')
     snapshots.add_task("integ(integ(tr*y*y,'y'),'z')", layout='g', name = 'ym2i')
     snapshots.add_task("integ(integ(tr*z,'z'),'y')", layout='g', name = 'zm1i')
     snapshots.add_task("integ(integ(tr*z*z,'z'),'y')", layout='g', name = 'zm2i')
     snapshots.add_task("integ(integ(tr*z*y,'z'),'y')", layout='g', name = 'yzmi')
+    
     snapshots.add_task("integ(integ(tr*K,'z'),'y')", layout='g', name = 'Ktr')
     snapshots.add_task("integ(integ(trz*K,'z'),'y')", layout='g', name = 'Ktrz')
     snapshots.add_task("integ(integ(abs(trz)*K,'z'),'y')", layout='g', name = 'Katrz')
     snapshots.add_task("integ(integ(trz*K*y,'z'),'y')", layout='g', name = 'Kytrz')
-    snapshots.add_task("integ(integ(tr*V,'z'),'y')", layout='g', name = 'Vtr')
+    
     snapshots.add_task("integ(integ(tr*V*y,'z'),'y')", layout='g', name = 'Vytr')
     snapshots.add_task("integ(integ(tr*V*z,'z'),'y')", layout='g', name = 'Vztr')
+
+    # B COM terms:
+    snapshots.add_task("integ(integ(tr*V*By,'z'),'y')", layout='g', name = 'VtrBy')
+    snapshots.add_task("integ(integ(tr*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBy')
+    snapshots.add_task("integ(integ(tr*K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtrtryBy')
+    snapshots.add_task("integ(integ(tr*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrtryBy')
+
+    # B VAR terms:
+    snapshots.add_task("integ(integ(tr*B*V*By,'z'),'y')", layout='g', name = 'VtrBBy')
+    snapshots.add_task("integ(integ(tr*B*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBBy')
+    snapshots.add_task("integ(integ(tr*B*K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtrtryBBy')
+    snapshots.add_task("integ(integ(tr*B*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrtryBBy')
 
     # Plotting:
     if plot:
@@ -304,21 +331,54 @@ if __name__ == "__main__":
     rank   = comm.Get_rank()
     rundir = '/home/z3500785/dedalus_rundir/';
     outbase = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/';
+    outfold = outbase + 'prodruns18-8-18/'
 
     plot = False
-    # Test runs:
-    AHs = [150.]*3 + [200.]*3 + [125.]*3 + [175.]*3 + [90.]*3 + [60.]*3 + [40.]*3 + [20.]*3
-    ADVs = [0,1,2] * 8
+    # Production runs -------------------
+    # AH=0:
+    ADVs   = [0,0,0,1,1,1,2,2,2]
+    Kinfs  = [1.e-5,1.e-4,1.e-3] *3
+    z0s    = [0.5] * 9
+    slopes = [1./400.] * 9
+
+    slopes.extend([1./200.]* 3 + [1./100.]*3)
+    ADVs.extend([0,1,2] * 2)
+    Kinfs.extend([1.e-5] * 6)
+    z0s.extend([0.5] * 6)
+
+    z0s.extend([0.125,0.25,1.,2.])
+    ADVs.extend([2]*4)
+    Kinfs.extend([1.e-5]*4)
+    slopes.extend([1./400.]*4)
+
+    AHs    = [0.] * len(ADVs)
+
+    # AH non-zero:
+    AHs.extend([10.,20.,30.,40.,50.,60.,70.,80.,90.,100.,125.,150.,175.,200.] * 3)
+    ADVs.extend([0] * 14 + [1]*14 + [2]*14)
+    z0s.extend([0.5] * 14 * 3)
+    slopes.extend([1./400.] * 14 * 3)
+    Kinfs.extend([1.e-5] * 14 * 3)
+
+    AHs.extend([10.,50.,100.,150.])
+    Kinfs.extend([1.e-3] * 4)
+    ADVs.extend([0] * 4)
+    z0s.extend([0.5] * 4)
+    slopes.extend([1./400.] * 4)
     
-    outfold = outbase + 'prodruns_wide30-5-19/'
     for ii in range(len(AHs)):
 
         input_dict = default_input_dict.copy()
+        input_dict['z0'] = z0s[ii]
         input_dict['AH'] = AHs[ii]
         input_dict['ADV'] = ADVs[ii]
-        input_dict['Ttot'] = 1800
+        input_dict['Kinf'] = Kinfs[ii]
+        input_dict['slope'] = slopes[ii]
         run_sim(rundir,plot=plot,**input_dict)
-        outdir = outfold + 'z0_0p5000_AH_%03d_ADV_%01d/' % (AHs[ii],ADVs[ii])
+        z0str = ('%1.4f' % z0s[ii]).replace('.','p')
+        Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
+        slopestr = '%03d' % (1./slopes[ii])
+        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s/' % (z0str,AHs[ii],ADVs[ii],Kinfstr,slopestr)
         print(outdir)
         merge_move(rundir,outdir)
 
