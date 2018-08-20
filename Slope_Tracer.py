@@ -235,6 +235,9 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     snapshots.add_task("integ(tr,'z')", layout='g', name = 'zm0')
     snapshots.add_task("integ(tr*z,'z')", layout='g', name = 'zm1')
     snapshots.add_task("integ(tr*z*z,'z')", layout='g', name = 'zm2')
+    snapshots.add_task("integ(integ(tr,'y'),'z')", layout = 'g', name = 'trT')
+    snapshots.add_task("integ(integ(tr*y,'y'),'z')", layout='g', name = 'ym1i')
+    snapshots.add_task("integ(integ(tr*z,'z'),'y')", layout='g', name = 'zm1i')
 
     # Moment time series file:
     moments = solver.evaluator.add_file_handler(rundir + 'moments', iter=1, max_writes=20000)
@@ -283,6 +286,9 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     moments.add_task("integ(integ(tr*B*V*Hbbl*By,'z'),'y')", layout='g', name = 'VbblTtrBBy')
     moments.add_task("integ(integ(B*K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtryBBy')
     moments.add_task("integ(integ(B*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrzBBz')
+    moments.add_task("integ(integ(B*K*trz*Bzp,'z'),'y')", layout='g', name = 'KtrzBBzp')
+    moments.add_task("integ(integ(tr*K*Bzp*N2*costh,'z'),'y')", layout='g', name = 'KtrBZBzp')
+    moments.add_task("integ(integ(B*Kz*tr*N2*costh,'z'),'y')", layout='g', name = 'KztrBBZ')
     moments.add_task("integ(integ(B*K*Hbbl*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtryBBy')
     moments.add_task("integ(integ(B*K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrzBBz')
 
@@ -397,11 +403,11 @@ if __name__ == "__main__":
     # slopes.extend([1./400.] * 4)
 
     # Test run:
-    AHs = [0.]
-    ADVs = [0]
-    slopes = [1./400.]
-    Kinfs = [1.e-3]
-    z0s = [0.5]
+    AHs = [0.,0.,0.,100.,100.]
+    ADVs = [0,0,2,0,2]
+    Kinfs = [1.e-3] + [1.e-5] * 4
+    slopes = [1./400.] * 5
+    z0s = [0.5] * 5
     
     for ii in range(len(AHs)):
 
