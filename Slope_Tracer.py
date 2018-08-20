@@ -123,10 +123,11 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     PSI.differentiate('z',out=V)
 
     # BBL fluxes from thickness criteria:
+    hvs = np.ones_like(z);
+    hvs[z > np.pi/q0] = 0.
     Hbbl = domain.new_field()
     Hbbl.meta['y']['constant'] = True
-    Hbbl['g'] = np.ones_like(z)
-    Hbbl['g'][z > np.pi/q0] = 0.
+    Hbbl['g'] = hvs
 
     # Buoyancy field:
     By = N2*np.sin(theta)
@@ -143,6 +144,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     problem = de.IVP(domain, variables=['tr','trz'])
     problem.meta[:]['z']['dirichlet'] = True
 
+    problem.parameters['N2'] = N2
     problem.parameters['K'] = K
     problem.parameters['Kz'] = Kz
     problem.parameters['AH'] = AH
@@ -227,8 +229,6 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     snapshots = solver.evaluator.add_file_handler(rundir + 'snapshots', iter=sfreq, max_writes=20000)
     snapshots.add_system(solver.state, layout='g')
     snapshots.add_task("tr*V", layout='g', name = 'advFy')
-
-    # Single moments:
     snapshots.add_task("integ(tr,'y')", layout='g', name = 'ym0')
     snapshots.add_task("integ(tr*y,'y')", layout='g', name = 'ym1')
     snapshots.add_task("integ(tr*y*y,'y')", layout='g', name = 'ym2')
@@ -236,54 +236,59 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     snapshots.add_task("integ(tr*z,'z')", layout='g', name = 'zm1')
     snapshots.add_task("integ(tr*z*z,'z')", layout='g', name = 'zm2')
 
-    # double moments:
-    snapshots.add_task("integ(integ(tr,'y'),'z')", layout = 'g', name = 'trT')
+    # Moment time series file:
+    moments = solver.evaluator.add_file_handler(rundir + 'moments', iter=1, max_writes=20000)
 
-    snapshots.add_task("integ(integ(trz,'y'),'z')", layout = 'g', name = 'trzT')
-    snapshots.add_task("integ(integ(abs(trz),'y'),'z')", layout = 'g', name = 'atrzT')
-    snapshots.add_task("integ(integ(trz*z,'y'),'z')", layout = 'g', name = 'trzzT')
-    snapshots.add_task("integ(integ(trz*y,'y'),'z')", layout = 'g', name = 'trzyT')
+    moments.add_task("integ(integ(tr,'y'),'z')", layout = 'g', name = 'trT')
+
+    moments.add_task("integ(integ(trz,'y'),'z')", layout = 'g', name = 'trzT')
+    moments.add_task("integ(integ(abs(trz),'y'),'z')", layout = 'g', name = 'atrzT')
+    moments.add_task("integ(integ(trz*z,'y'),'z')", layout = 'g', name = 'trzzT')
+    moments.add_task("integ(integ(trz*y,'y'),'z')", layout = 'g', name = 'trzyT')
     
-    snapshots.add_task("integ(integ(tr*B,'y'),'z')", layout = 'g', name = 'bm1i')
-    snapshots.add_task("integ(integ(tr*B*B,'y'),'z')", layout = 'g', name = 'bm2i')
-    snapshots.add_task("integ(integ(tr*B*B*B,'y'),'z')", layout = 'g', name = 'bm3i')
-    snapshots.add_task("integ(integ(tr*B*B*B*B,'y'),'z')", layout = 'g', name = 'bm4i')
+    moments.add_task("integ(integ(tr*B,'y'),'z')", layout = 'g', name = 'bm1i')
+    moments.add_task("integ(integ(tr*B*B,'y'),'z')", layout = 'g', name = 'bm2i')
+    moments.add_task("integ(integ(tr*B*B*B,'y'),'z')", layout = 'g', name = 'bm3i')
+    moments.add_task("integ(integ(tr*B*B*B*B,'y'),'z')", layout = 'g', name = 'bm4i')
     
-    snapshots.add_task("integ(integ(tr*y,'y'),'z')", layout='g', name = 'ym1i')
-    snapshots.add_task("integ(integ(tr*y*y,'y'),'z')", layout='g', name = 'ym2i')
-    snapshots.add_task("integ(integ(tr*z,'z'),'y')", layout='g', name = 'zm1i')
-    snapshots.add_task("integ(integ(tr*z*z,'z'),'y')", layout='g', name = 'zm2i')
-    snapshots.add_task("integ(integ(tr*z*y,'z'),'y')", layout='g', name = 'yzmi')
+    moments.add_task("integ(integ(tr*y,'y'),'z')", layout='g', name = 'ym1i')
+    moments.add_task("integ(integ(tr*y*y,'y'),'z')", layout='g', name = 'ym2i')
+    moments.add_task("integ(integ(tr*z,'z'),'y')", layout='g', name = 'zm1i')
+    moments.add_task("integ(integ(tr*z*z,'z'),'y')", layout='g', name = 'zm2i')
+    moments.add_task("integ(integ(tr*z*y,'z'),'y')", layout='g', name = 'yzmi')
     
-    snapshots.add_task("integ(integ(tr*K,'z'),'y')", layout='g', name = 'Ktr')
-    snapshots.add_task("integ(integ(trz*K,'z'),'y')", layout='g', name = 'Ktrz')
-    snapshots.add_task("integ(integ(abs(trz)*K,'z'),'y')", layout='g', name = 'Katrz')
-    snapshots.add_task("integ(integ(trz*K*y,'z'),'y')", layout='g', name = 'Kytrz')
+    moments.add_task("integ(integ(tr*K,'z'),'y')", layout='g', name = 'Ktr')
+    moments.add_task("integ(integ(trz*K,'z'),'y')", layout='g', name = 'Ktrz')
+    moments.add_task("integ(integ(abs(trz)*K,'z'),'y')", layout='g', name = 'Katrz')
+    moments.add_task("integ(integ(trz*K*y,'z'),'y')", layout='g', name = 'Kytrz')
     
-    snapshots.add_task("integ(integ(tr*V*y,'z'),'y')", layout='g', name = 'Vytr')
-    snapshots.add_task("integ(integ(tr*V*z,'z'),'y')", layout='g', name = 'Vztr')
+    moments.add_task("integ(integ(tr*V*y,'z'),'y')", layout='g', name = 'Vytr')
+    moments.add_task("integ(integ(tr*V*z,'z'),'y')", layout='g', name = 'Vztr')
 
     # B COM terms:
-    snapshots.add_task("integ(integ(tr*V*By,'z'),'y')", layout='g', name = 'VtrBy')
-    snapshots.add_task("integ(integ(tr*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBy')
-    snapshots.add_task("integ(integ(tr*V*Hbbl*By,'z'),'y')", layout='g', name = 'VbblTtrBy')
-    snapshots.add_task("integ(integ(tr*K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtrtryBy')
-    snapshots.add_task("integ(integ(tr*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrtrzBz')
-    snapshots.add_task("integ(integ(tr*K*Hbbl*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtrtryBy')
-    snapshots.add_task("integ(integ(tr*K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrtrzBz')
+    moments.add_task("integ(integ(tr*V*By,'z'),'y')", layout='g', name = 'VtrBy')
+    moments.add_task("integ(integ(tr*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBy')
+    moments.add_task("integ(integ(tr*V*Hbbl*By,'z'),'y')", layout='g', name = 'VbblTtrBy')
+
+    moments.add_task("integ(integ(K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtryBy')
+    moments.add_task("integ(integ(K*Hbbl*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtryBy')
+    moments.add_task("integ(integ(Kz*tr*N2*costh,'z'),'y')", layout='g', name = 'KztrBZ')
+    moments.add_task("integ(integ(K*trz*Bz,'z'),'y')", layout='g', name = 'KtrzBz')
+    moments.add_task("integ(integ(K*trz*Bzp,'z'),'y')", layout='g', name = 'KtrzBzp')
+    moments.add_task("integ(integ(K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrzBz')
 
     # B VAR terms:
-    snapshots.add_task("integ(integ(tr*B*V*By,'z'),'y')", layout='g', name = 'VtrBBy')
-    snapshots.add_task("integ(integ(tr*B*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBBy')
-    snapshots.add_task("integ(integ(tr*B*V*Hbbl*By,'z'),'y')", layout='g', name = 'VbblTtrBBy')
-    snapshots.add_task("integ(integ(tr*B*K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtrtryBBy')
-    snapshots.add_task("integ(integ(tr*B*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrtrzBBz')
-    snapshots.add_task("integ(integ(tr*B*K*Hbbl*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtrtryBBy')
-    snapshots.add_task("integ(integ(tr*B*K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrtrzBBz')
+    moments.add_task("integ(integ(tr*B*V*By,'z'),'y')", layout='g', name = 'VtrBBy')
+    moments.add_task("integ(integ(tr*B*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBBy')
+    moments.add_task("integ(integ(tr*B*V*Hbbl*By,'z'),'y')", layout='g', name = 'VbblTtrBBy')
+    moments.add_task("integ(integ(B*K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtryBBy')
+    moments.add_task("integ(integ(B*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrzBBz')
+    moments.add_task("integ(integ(B*K*Hbbl*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtryBBy')
+    moments.add_task("integ(integ(B*K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrzBBz')
 
     # Approximation check terms:
-    snapshots.add_task("integ(integ(AH*sinth*Bzp*(trz*sinth-dy(tr)*costh),'z'),'y')", layout='g', name = 'AHbm1')
-    snapshots.add_task("integ(integ(AH*sinth*B*Bzp*(trz*sinth-dy(tr)*costh),'z'),'y')", layout='g', name = 'AHbm2')
+    moments.add_task("integ(integ(AH*sinth*Bzp*(trz*sinth-dy(tr)*costh),'z'),'y')", layout='g', name = 'AHbm1')
+    moments.add_task("integ(integ(AH*sinth*B*Bzp*(trz*sinth-dy(tr)*costh),'z'),'y')", layout='g', name = 'AHbm2')
     
     # Plotting:
     if plot:
@@ -343,6 +348,10 @@ def merge_move(rundir,outdir):
     post.merge_process_files(rundir + "ifields", cleanup=True)
     set_paths = list(pathlib.Path(rundir + "ifields").glob("ifields_s*.h5"))
     post.merge_sets(rundir + "ifields/ifields.h5", set_paths, cleanup=True)
+    # moments
+    post.merge_process_files(rundir + "moments", cleanup=True)
+    set_paths = list(pathlib.Path(rundir + "moments").glob("moments_s*.h5"))
+    post.merge_sets(rundir + "moments/moments.h5", set_paths, cleanup=True)
 
     
 if __name__ == "__main__":
@@ -355,44 +364,44 @@ if __name__ == "__main__":
     outfold = outbase + 'prodruns18-8-18/'
 
     plot = False
-    # Production runs -------------------
-    # AH=0:
-    ADVs   = [0,0,0,1,1,1,2,2,2]
-    Kinfs  = [1.e-5,1.e-4,1.e-3] *3
-    z0s    = [0.5] * 9
-    slopes = [1./400.] * 9
+    # # Production runs -------------------
+    # # AH=0:
+    # ADVs   = [0,0,0,1,1,1,2,2,2]
+    # Kinfs  = [1.e-5,1.e-4,1.e-3] *3
+    # z0s    = [0.5] * 9
+    # slopes = [1./400.] * 9
 
-    slopes.extend([1./200.]* 3 + [1./100.]*3)
-    ADVs.extend([0,1,2] * 2)
-    Kinfs.extend([1.e-5] * 6)
-    z0s.extend([0.5] * 6)
+    # slopes.extend([1./200.]* 3 + [1./100.]*3)
+    # ADVs.extend([0,1,2] * 2)
+    # Kinfs.extend([1.e-5] * 6)
+    # z0s.extend([0.5] * 6)
 
-    z0s.extend([0.125,0.25,1.,2.])
-    ADVs.extend([2]*4)
-    Kinfs.extend([1.e-5]*4)
-    slopes.extend([1./400.]*4)
+    # z0s.extend([0.125,0.25,1.,2.])
+    # ADVs.extend([2]*4)
+    # Kinfs.extend([1.e-5]*4)
+    # slopes.extend([1./400.]*4)
 
-    AHs    = [0.] * len(ADVs)
+    # AHs    = [0.] * len(ADVs)
 
-    # AH non-zero:
-    AHs.extend([10.,20.,30.,40.,50.,60.,70.,80.,90.,100.,125.,150.,175.,200.] * 3)
-    ADVs.extend([0] * 14 + [1]*14 + [2]*14)
-    z0s.extend([0.5] * 14 * 3)
-    slopes.extend([1./400.] * 14 * 3)
-    Kinfs.extend([1.e-5] * 14 * 3)
+    # # AH non-zero:
+    # AHs.extend([10.,20.,30.,40.,50.,60.,70.,80.,90.,100.,125.,150.,175.,200.] * 3)
+    # ADVs.extend([0] * 14 + [1]*14 + [2]*14)
+    # z0s.extend([0.5] * 14 * 3)
+    # slopes.extend([1./400.] * 14 * 3)
+    # Kinfs.extend([1.e-5] * 14 * 3)
 
-    AHs.extend([10.,50.,100.,150.])
-    Kinfs.extend([1.e-3] * 4)
-    ADVs.extend([0] * 4)
-    z0s.extend([0.5] * 4)
-    slopes.extend([1./400.] * 4)
+    # AHs.extend([10.,50.,100.,150.])
+    # Kinfs.extend([1.e-3] * 4)
+    # ADVs.extend([0] * 4)
+    # z0s.extend([0.5] * 4)
+    # slopes.extend([1./400.] * 4)
 
-    # # Test run:
-    # AHs = [100.]
-    # ADVs = [2]
-    # slopes = [1./400.]
-    # Kinfs = [1.e-5]
-    # z0s = [0.5]
+    # Test run:
+    AHs = [0.]
+    ADVs = [0]
+    slopes = [1./400.]
+    Kinfs = [1.e-3]
+    z0s = [0.5]
     
     for ii in range(len(AHs)):
 
@@ -413,9 +422,11 @@ if __name__ == "__main__":
         if rank == 0:
             os.makedirs(outdir, exist_ok=True)
             shutil.move(rundir + 'snapshots/snapshots.h5',outdir + 'snapshots.h5');
+            shutil.move(rundir + 'moments/moments.h5',outdir + 'moments.h5');
             shutil.move(rundir + 'ifields/ifields.h5',outdir + 'ifields.h5');
             shutil.move(rundir + 'runparams.npz',outdir + 'runparams.npz');
             shutil.rmtree(rundir + 'snapshots/');
             shutil.rmtree(rundir + 'ifields/');
+            shutil.rmtree(rundir + 'moments/');
 
 
