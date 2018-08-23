@@ -85,7 +85,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     y = domain.grid(0)
     z = domain.grid(1)
 
-    # Create input fields 
+    # Create input fields
 
     # Isotropic Diffusivity
     K = domain.new_field()
@@ -122,6 +122,11 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     PSIbbl.differentiate('z',out=Vbbl)
     PSI.differentiate('z',out=V)
 
+    # Depth-dependent horizontal diffusivity
+    AHdd = domain.new_field()
+    AHdd.meta['y']['constant'] = True
+    AHdd['g'] = AH*(1.-np.exp(-q0*z))
+    
     # BBL fluxes from thickness criteria:
     hvs = np.ones_like(z);
     hvs[z > np.pi/q0] = 0.
@@ -147,6 +152,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     problem.parameters['N2'] = N2
     problem.parameters['K'] = K
     problem.parameters['Kz'] = Kz
+    problem.parameters['AHdd'] = AHdd
     problem.parameters['AH'] = AH
     problem.parameters['V'] = V
     problem.parameters['Vbbl'] = Vbbl
@@ -179,7 +185,17 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     # problem.substitutions['FzIN'] = '(AH*sinth**2. + K)*trz - AH*sinth*costh*dy(tr)'
     # problem.add_equation("dt(tr) + V*dy(tr) - dy(FyIN) - dz(FzIN) = dy(FyBB) + dz(FzBB)")
     # Only Interior buoyancy influences AH (but full B used for binning):
-    problem.add_equation("dt(tr) + V*dy(tr) - (AH*costh**2. + K)*d(tr,y=2) + 2*AH*sinth*costh*dy(trz) - Kz*trz - (AH*sinth**2.+K)*dz(trz) = 0.")
+    # problem.add_equation("dt(tr) + V*dy(tr) - (AH*costh**2. + K)*d(tr,y=2) + 2*AH*sinth*costh*dy(trz) - Kz*trz - (AH*sinth**2.+K)*dz(trz) = 0.")
+    # Flux-formulation attempt #2:
+    # problem.substitutions['GB2']   = "Bz*Bz + By*By"
+    # problem.substitutions['FImHy'] = "-AH*((Bz**2./GB2 - costh**2.)*dy(tr)    - (By*Bz/GB2 - sinth*costh)*trz)"
+    # problem.substitutions['FImHz'] = "-AH*(-(Bz*By/GB2 - sinth*costh)*dy(tr) + (By**2./GB2 - sinth**2.)*trz)"
+    problem.substitutions['Fy']    = "V*tr - K*dy(tr)"
+    problem.substitutions['Fz']    = "     - K*trz"
+    problem.substitutions['FHy']   = "-AHdd*(costh**2.*dy(tr)    - sinth*costh*trz)"
+    problem.substitutions['FHz']   = "-AHdd*(-sinth*costh*dy(tr) + sinth**2.*trz)"
+    problem.add_equation("dt(tr) + dy(Fy + FHy) + dz(Fz + FHz) = 0.")
+    
 
     problem.add_equation("trz - dz(tr) = 0")
     problem.add_bc("left(trz) = 0")
@@ -280,6 +296,8 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     moments.add_task("integ(integ(K*trz*Bzp,'z'),'y')", layout='g', name = 'KtrzBzp')
     moments.add_task("integ(integ(K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrzBz')
 
+    moments.add_task("integ(integ(trz*Bzp,'z'),'y')", layout='g', name = 'trzBzp')
+
     # B VAR terms:
     moments.add_task("integ(integ(tr*B*V*By,'z'),'y')", layout='g', name = 'VtrBBy')
     moments.add_task("integ(integ(tr*B*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBBy')
@@ -367,7 +385,7 @@ if __name__ == "__main__":
     rank   = comm.Get_rank()
     rundir = '/home/z3500785/dedalus_rundir/';
     outbase = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/';
-    outfold = outbase + 'prodruns18-8-18/'
+    outfold = outbase + 'prodruns23-08-18/'
 
     plot = False
     # # Production runs -------------------
@@ -402,13 +420,20 @@ if __name__ == "__main__":
     # z0s.extend([0.5] * 4)
     # slopes.extend([1./400.] * 4)
 
+    # # Test runs:
+    # AHs = [0.,0.,0.,100.,100.]
+    # ADVs = [0,0,2,0,2]
+    # Kinfs = [1.e-3] + [1.e-5] * 4
+    # slopes = [1./400.] * 5
+    # z0s = [0.5] * 5
+
     # Test run:
-    AHs = [0.,0.,0.,100.,100.]
-    ADVs = [0,0,2,0,2]
-    Kinfs = [1.e-3] + [1.e-5] * 4
-    slopes = [1./400.] * 5
-    z0s = [0.5] * 5
-    
+    AHs = [100.]
+    ADVs = [2]
+    Kinfs = [1.e-5]
+    slopes = [1./400.]
+    z0s = [0.5]
+
     for ii in range(len(AHs)):
 
         input_dict = default_input_dict.copy()
@@ -421,7 +446,7 @@ if __name__ == "__main__":
         z0str = ('%1.4f' % z0s[ii]).replace('.','p')
         Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
         slopestr = '%03d' % (1./slopes[ii])
-        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s/' % (z0str,AHs[ii],ADVs[ii],Kinfstr,slopestr)
+        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s_KH/' % (z0str,AHs[ii],ADVs[ii],Kinfstr,slopestr)
         print(outdir)
         merge_move(rundir,outdir)
 
