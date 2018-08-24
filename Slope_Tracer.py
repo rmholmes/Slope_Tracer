@@ -377,40 +377,40 @@ if __name__ == "__main__":
     rank   = comm.Get_rank()
     rundir = '/home/z3500785/dedalus_rundir/';
     outbase = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/';
-    outfold = outbase + 'prodruns23-08-18/'
+    outfold = outbase + 'prodruns24-08-18/'
 
     plot = False
-    # # Production runs -------------------
-    # # AH=0:
-    # ADVs   = [0,0,0,1,1,1,2,2,2]
-    # Kinfs  = [1.e-5,1.e-4,1.e-3] *3
-    # z0s    = [0.5] * 9
-    # slopes = [1./400.] * 9
+    # Production runs -------------------
+    # AH=0:
+    ADVs   = [0,0,0,1,1,1,2,2,2]
+    Kinfs  = [1.e-5,1.e-4,1.e-3] *3
+    z0s    = [0.5] * 9
+    slopes = [1./400.] * 9
 
-    # slopes.extend([1./200.]* 3 + [1./100.]*3)
-    # ADVs.extend([0,1,2] * 2)
-    # Kinfs.extend([1.e-5] * 6)
-    # z0s.extend([0.5] * 6)
+    slopes.extend([1./200.]* 3 + [1./100.]*3)
+    ADVs.extend([0,1,2] * 2)
+    Kinfs.extend([1.e-5] * 6)
+    z0s.extend([0.5] * 6)
 
-    # z0s.extend([0.125,0.25,1.,2.])
-    # ADVs.extend([2]*4)
-    # Kinfs.extend([1.e-5]*4)
-    # slopes.extend([1./400.]*4)
+    z0s.extend([0.125,0.25,1.,2.])
+    ADVs.extend([2]*4)
+    Kinfs.extend([1.e-5]*4)
+    slopes.extend([1./400.]*4)
 
-    # AHs    = [0.] * len(ADVs)
+    AHs    = [0.] * len(ADVs)
 
-    # # AH non-zero:
-    # AHs.extend([10.,20.,30.,40.,50.,60.,70.,80.,90.,100.,125.,150.,175.,200.] * 3)
-    # ADVs.extend([0] * 14 + [1]*14 + [2]*14)
-    # z0s.extend([0.5] * 14 * 3)
-    # slopes.extend([1./400.] * 14 * 3)
-    # Kinfs.extend([1.e-5] * 14 * 3)
+    # AH non-zero:
+    AHs.extend([10.,20.,30.,40.,50.,60.,70.,80.,90.,100.,125.,150.,175.,200.] * 3)
+    ADVs.extend([0] * 14 + [1]*14 + [2]*14)
+    z0s.extend([0.5] * 14 * 3)
+    slopes.extend([1./400.] * 14 * 3)
+    Kinfs.extend([1.e-5] * 14 * 3)
 
-    # AHs.extend([10.,50.,100.,150.])
-    # Kinfs.extend([1.e-3] * 4)
-    # ADVs.extend([0] * 4)
-    # z0s.extend([0.5] * 4)
-    # slopes.extend([1./400.] * 4)
+    AHs.extend([10.,50.,100.,150.])
+    Kinfs.extend([1.e-3] * 4)
+    ADVs.extend([0] * 4)
+    z0s.extend([0.5] * 4)
+    slopes.extend([1./400.] * 4)
 
     # # Test runs:
     # AHs = [0.,0.,0.,100.,100.]
@@ -418,14 +418,6 @@ if __name__ == "__main__":
     # Kinfs = [1.e-3] + [1.e-5] * 4
     # slopes = [1./400.] * 5
     # z0s = [0.5] * 5
-
-    # Test runs:
-    AHs = [100.,100.,100.,100.]
-    AHvars = [0,1,0,1]
-    ADVs = [0,0,2,2]
-    Kinfs = [1.e-5] * 4
-    slopes = [1./400.] * 4
-    z0s = [0.5] * 4
 
     for ii in range(len(AHs)):
 
@@ -435,13 +427,11 @@ if __name__ == "__main__":
         input_dict['ADV'] = ADVs[ii]
         input_dict['Kinf'] = Kinfs[ii]
         input_dict['slope'] = slopes[ii]
-        input_dict['AHvar'] = AHvars[ii]
-        input_dict['Ttot'] = 800
         run_sim(rundir,plot=plot,**input_dict)
         z0str = ('%1.4f' % z0s[ii]).replace('.','p')
         Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
         slopestr = '%03d' % (1./slopes[ii])
-        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s_AHvar_%01d/' % (z0str,AHs[ii],ADVs[ii],Kinfstr,slopestr,AHvars[ii])
+        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s/' % (z0str,AHs[ii],ADVs[ii],Kinfstr,slopestr,AHvars[ii])
         print(outdir)
         merge_move(rundir,outdir)
 
