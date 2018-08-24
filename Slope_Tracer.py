@@ -43,6 +43,7 @@ K0 = 1.0e-3
 d = 500.0
 
 AH = 0.0
+AHvar = 1 # 1 = Reduced in BBL, 0 = Constant
 
 # Initial tracer parameters
 trItype = 1 # 1 = point, 2 = layer
@@ -65,7 +66,7 @@ Ttot = 3200
 sfreq = 2
 
 accept_list = ['Ly','Lz','ny','nz','N2','slope','Pr0',
-               'Kinf','K0','d','AH','trItype','z0','sz0',
+               'Kinf','K0','d','AH','AHvar','trItype','z0','sz0',
                'c0','sy0','mxy0','mny0','ADV','lday','dt',
                'Ttot','sfreq']
 default_input_dict = {}
@@ -74,7 +75,7 @@ for i in accept_list:
 
 # Run a simulation -----------------------------------------------------------------------------------------
 def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
-               Kinf,K0,d,AH,trItype,z0,sz0,
+               Kinf,K0,d,AH,AHvar,trItype,z0,sz0,
                c0,sy0,mxy0,mny0,ADV,lday,dt,
                Ttot,sfreq,plot):
 
@@ -125,8 +126,11 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     # Depth-dependent horizontal diffusivity
     AHdd = domain.new_field()
     AHdd.meta['y']['constant'] = True
-    AHdd['g'] = AH*(1.-np.exp(-q0*z))
-    
+    if AHvar == 1:
+        AHdd['g'] = AH*(1.-np.exp(-q0*z))
+    else:
+        AHdd['g'] = AH
+        
     # BBL fluxes from thickness criteria:
     hvs = np.ones_like(z);
     hvs[z > np.pi/q0] = 0.
@@ -153,7 +157,6 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     problem.parameters['K'] = K
     problem.parameters['Kz'] = Kz
     problem.parameters['AHdd'] = AHdd
-    problem.parameters['AH'] = AH
     problem.parameters['V'] = V
     problem.parameters['Vbbl'] = Vbbl
     problem.parameters['By'] = By
@@ -161,42 +164,30 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     problem.parameters['Bzp'] = Bzp
     problem.parameters['B'] = B
     problem.parameters['Hbbl'] = Hbbl
-
-    # # Full Equation with analytic derivatives:
-    # problem.parameters['tanth'] = np.tan(theta)
-    # problem.parameters['cotth'] = 1/np.tan(theta)
-    # problem.parameters['f'] = f
-    # problem.parameters['fz'] = fz
-    # problem.substitutions['Bz2d'] = '(1-f)**2./(tanth**2.+(1-f)**2.)'
-    # problem.substitutions['ByBzd'] = '(1-f)/(tanth+cotth*(1-f)**2.)'
-    # problem.substitutions['By2d'] = '1/(1+cotth**2.*(1-f)**2.)'
-    # problem.substitutions['ByBzdd'] = 'fz*(cotth*(1-f)**2.-tanth)/(tanth+cotth*(1-f)**2.)**2.'
-    # problem.substitutions['By2dd'] = '2*(1-f)*fz/(1+cotth**2.*(1-f)**2.)**2.'
-    # problem.add_equation("dt(tr) + V*dy(tr) - (AH*Bz2d + K)*d(tr,y=2) + 2*AH*ByBzd*dy(trz) + AH*ByBzdd*dy(tr) - (AH*By2dd+Kz)*trz - (AH*By2d+K)*dz(trz) = 0.")
     problem.parameters['costh'] = np.cos(theta)
     problem.parameters['sinth'] = np.sin(theta)
-    # # Flux-formulation:
-    # # Comments:
-    # # Next thing to try:
-    # # - Formula Bz^2/|Grad B|^2, By^2/|Grad B|^2 and Bz*By/|Grad B|^2 analytically and approximate with polynomial form.
-    # problem.substitutions['FyBB'] = 'AH*(Bz*Bz/(Bz*Bz+By*By)-costh**2.)*dy(tr) - AH*(By*Bz/(Bz*Bz+By*By)-sinth*costh)*trz'
-    # problem.substitutions['FzBB'] = 'AH*(By*By/(Bz*Bz+By*By)-sinth**2.)*trz - AH*(By*Bz/(Bz*Bz+By*By)-sinth*costh)*dy(tr)'
-    # problem.substitutions['FyIN'] = '(AH*costh**2. + K)*dy(tr) - AH*sinth*costh*trz'
-    # problem.substitutions['FzIN'] = '(AH*sinth**2. + K)*trz - AH*sinth*costh*dy(tr)'
-    # problem.add_equation("dt(tr) + V*dy(tr) - dy(FyIN) - dz(FzIN) = dy(FyBB) + dz(FzBB)")
+
     # Only Interior buoyancy influences AH (but full B used for binning):
     # problem.add_equation("dt(tr) + V*dy(tr) - (AH*costh**2. + K)*d(tr,y=2) + 2*AH*sinth*costh*dy(trz) - Kz*trz - (AH*sinth**2.+K)*dz(trz) = 0.")
-    # Flux-formulation attempt #2:
-    # problem.substitutions['GB2']   = "Bz*Bz + By*By"
-    # problem.substitutions['FImHy'] = "-AH*((Bz**2./GB2 - costh**2.)*dy(tr)    - (By*Bz/GB2 - sinth*costh)*trz)"
-    # problem.substitutions['FImHz'] = "-AH*(-(Bz*By/GB2 - sinth*costh)*dy(tr) + (By**2./GB2 - sinth**2.)*trz)"
-    problem.substitutions['Fy']    = "V*tr - K*dy(tr)"
-    problem.substitutions['Fz']    = "     - K*trz"
-    problem.substitutions['FHy']   = "-AHdd*(costh**2.*dy(tr)    - sinth*costh*trz)"
-    problem.substitutions['FHz']   = "-AHdd*(-sinth*costh*dy(tr) + sinth**2.*trz)"
-    problem.add_equation("dt(tr) + dy(Fy + FHy) + dz(Fz + FHz) = 0.")
-    
 
+    # Flux-formulation:
+    # Advection and isotropic diffusion fluxes:
+    problem.substitutions['Fy'] = "V*tr - K*dy(tr)" 
+    problem.substitutions['Fz'] = "     - K*trz"
+    # LHS K-tensor terms:
+    # problem.parameters['f'] = f
+    # problem.substitutions['GB2'] = "1 + costh**2.*f*(f-2)"
+    # problem.substitutions['KHyy'] = "sinth**2./GB2"
+    # problem.substitutions['KHyz'] = "-costh*sinth*(1-f)/GB2"
+    # problem.substitutions['KHzz'] = "costh**2.*(1-f)**2./GB2"
+    problem.substitutions['KHyy'] = "costh**2"
+    problem.substitutions['KHyz'] = "-costh*sinth"
+    problem.substitutions['KHzz'] = "sinth**2."
+    # LHS fluxes:
+    problem.substitutions['FHy']   = "-AHdd*(KHyy*dy(tr) + KHyz*trz)"
+    problem.substitutions['FHz']   = "-AHdd*(KHyz*dy(tr) + KHzz*trz)"
+
+    problem.add_equation("dt(tr) + dy(Fy + FHy) + dz(Fz + FHz) = 0.")
     problem.add_equation("trz - dz(tr) = 0")
     problem.add_bc("left(trz) = 0")
     problem.add_bc("right(trz) = 0")
@@ -238,6 +229,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     ifields = solver.evaluator.add_file_handler(rundir + 'ifields', iter=5000000000000, max_writes=20000)
     ifields.add_task("B", layout='g', name = 'B')
     ifields.add_task("K", layout='g', name = 'K')
+    ifields.add_task("AHdd", layout='g', name = 'AHdd')
     ifields.add_task("V", layout='g', name = 'V')
     ifields.add_task("Bz", layout='g', name = 'Bz')
 
@@ -311,8 +303,8 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     moments.add_task("integ(integ(B*K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrzBBz')
 
     # Approximation check terms:
-    moments.add_task("integ(integ(AH*sinth*Bzp*(trz*sinth-dy(tr)*costh),'z'),'y')", layout='g', name = 'AHbm1')
-    moments.add_task("integ(integ(AH*sinth*B*Bzp*(trz*sinth-dy(tr)*costh),'z'),'y')", layout='g', name = 'AHbm2')
+    moments.add_task("integ(integ(AHdd*sinth*Bzp*(trz*sinth-dy(tr)*costh),'z'),'y')", layout='g', name = 'AHbm1')
+    moments.add_task("integ(integ(AHdd*sinth*B*Bzp*(trz*sinth-dy(tr)*costh),'z'),'y')", layout='g', name = 'AHbm2')
     
     # Plotting:
     if plot:
@@ -427,12 +419,13 @@ if __name__ == "__main__":
     # slopes = [1./400.] * 5
     # z0s = [0.5] * 5
 
-    # Test run:
-    AHs = [100.]
-    ADVs = [2]
-    Kinfs = [1.e-5]
-    slopes = [1./400.]
-    z0s = [0.5]
+    # Test runs:
+    AHs = [100.,100.,100.,100.]
+    AHvars = [0,1,0,1]
+    ADVs = [0,0,2,2]
+    Kinfs = [1.e-5] * 4
+    slopes = [1./400.] * 4
+    z0s = [0.5] * 4
 
     for ii in range(len(AHs)):
 
@@ -442,11 +435,13 @@ if __name__ == "__main__":
         input_dict['ADV'] = ADVs[ii]
         input_dict['Kinf'] = Kinfs[ii]
         input_dict['slope'] = slopes[ii]
+        input_dict['AHvar'] = AHvars[ii]
+        input_dict['Ttot'] = 800
         run_sim(rundir,plot=plot,**input_dict)
         z0str = ('%1.4f' % z0s[ii]).replace('.','p')
         Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
         slopestr = '%03d' % (1./slopes[ii])
-        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s_KH/' % (z0str,AHs[ii],ADVs[ii],Kinfstr,slopestr)
+        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s_AHvar_%01d/' % (z0str,AHs[ii],ADVs[ii],Kinfstr,slopestr,AHvars[ii])
         print(outdir)
         merge_move(rundir,outdir)
 
