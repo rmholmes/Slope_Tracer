@@ -86,6 +86,9 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     y = domain.grid(0)
     z = domain.grid(1)
 
+    # Notes: dealias (n+1)/2 where n is the RHS non-linearity order (e.g. n2).
+    # so dealias = 1 if no non-linearities
+
     # Create input fields
 
     # Isotropic Diffusivity
@@ -94,7 +97,9 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     Kz = domain.new_field()
     Kz.meta['y']['constant'] = True
     K['g'] = Kinf + (K0-Kinf)*np.exp(-z/d)
+    #    K.set_scales(domain.dealias)
     K.differentiate('z',out=Kz)
+    
 
     # Upslope Velocity
     PSI = domain.new_field()
@@ -183,6 +188,12 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     problem.substitutions['KHyy'] = "costh**2"
     problem.substitutions['KHyz'] = "-costh*sinth"
     problem.substitutions['KHzz'] = "sinth**2."
+
+    # Two options:
+    # - Try uping the level of non-constant coefficients cutoff (how many coefficient it uses to expand exponentials.
+    # - Adding diffusion to prevent negative diffusivities (look for theory on diagnoally dominant matrices). (off-diagnal can be negative
+    # - Approximate every single term with a polynomial (and make sure matrix is positive definite). Make sure polynomials are less than half resolution.
+    
     # LHS fluxes:
     problem.substitutions['FHy']   = "-AHdd*(KHyy*dy(tr) + KHyz*trz)"
     problem.substitutions['FHz']   = "-AHdd*(KHyz*dy(tr) + KHzz*trz)"
@@ -221,7 +232,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     Itot = solver.stop_iteration
 
     # Save parameters:
-    np.savez(rundir + 'runparams',Ly=Ly,Lz=Lz,N2=N2,slope=slope,theta=theta,Pr0=Pr0,Kinf=Kinf,K0=K0,d=d,AH=AH,
+    np.savez(rundir + 'runparams',Ly=Ly,Lz=Lz,N2=N2,slope=slope,theta=theta,Pr0=Pr0,Kinf=Kinf,K0=K0,d=d,AH=AH,AHvar=AHvar,
              q0=q0,By=By,sy=sy,sz=sz,cy=cy,cz=cz,lday=lday,dt=dt,sfreq=sfreq,Itot=Itot,Ttot=Ttot,mxy0=mxy0,mny0=mny0)
 
     ## Analysis
@@ -431,7 +442,7 @@ if __name__ == "__main__":
         z0str = ('%1.4f' % z0s[ii]).replace('.','p')
         Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
         slopestr = '%03d' % (1./slopes[ii])
-        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s/' % (z0str,AHs[ii],ADVs[ii],Kinfstr,slopestr,AHvars[ii])
+        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s/' % (z0str,AHs[ii],ADVs[ii],Kinfstr,slopestr)
         print(outdir)
         merge_move(rundir,outdir)
 
