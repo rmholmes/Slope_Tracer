@@ -394,38 +394,50 @@ if __name__ == "__main__":
     outfold = outbase + 'prodruns24-08-18/'
 
     plot = False
-    # Production runs -------------------
-    # AH=0:
-    ADVs   = [0,0,0,1,1,1,2,2,2]
-    Kinfs  = [1.e-5,1.e-4,1.e-3] *3
-    z0s    = [0.5] * 9
-    slopes = [1./400.] * 9
+    # # Production runs Point-Release -------------------
+    # # AH=0:
+    # ADVs   = [0,0,0,1,1,1,2,2,2]
+    # Kinfs  = [1.e-5,1.e-4,1.e-3] *3
+    # z0s    = [0.5] * 9
+    # slopes = [1./400.] * 9
 
-    slopes.extend([1./200.]* 3 + [1./100.]*3)
-    ADVs.extend([0,1,2] * 2)
-    Kinfs.extend([1.e-5] * 6)
-    z0s.extend([0.5] * 6)
+    # slopes.extend([1./200.]* 3 + [1./100.]*3)
+    # ADVs.extend([0,1,2] * 2)
+    # Kinfs.extend([1.e-5] * 6)
+    # z0s.extend([0.5] * 6)
 
-    z0s.extend([0.125,0.25,1.,2.])
-    ADVs.extend([2]*4)
-    Kinfs.extend([1.e-5]*4)
-    slopes.extend([1./400.]*4)
+    # z0s.extend([0.125,0.25,1.,2.])
+    # ADVs.extend([2]*4)
+    # Kinfs.extend([1.e-5]*4)
+    # slopes.extend([1./400.]*4)
 
-    AHs    = [0.] * len(ADVs)
+    # AHs    = [0.] * len(ADVs)
 
-    # AH non-zero:
-    AHs.extend([10.,20.,30.,40.,50.,60.,70.,80.,90.,100.,125.,150.,175.,200.] * 3)
-    ADVs.extend([0] * 14 + [1]*14 + [2]*14)
-    z0s.extend([0.5] * 14 * 3)
-    slopes.extend([1./400.] * 14 * 3)
-    Kinfs.extend([1.e-5] * 14 * 3)
+    # # AH non-zero:
+    # AHs.extend([10.,20.,30.,40.,50.,60.,70.,80.,90.,100.,125.,150.,175.,200.] * 3)
+    # ADVs.extend([0] * 14 + [1]*14 + [2]*14)
+    # z0s.extend([0.5] * 14 * 3)
+    # slopes.extend([1./400.] * 14 * 3)
+    # Kinfs.extend([1.e-5] * 14 * 3)
 
-    AHs.extend([10.,50.,100.,150.])
-    Kinfs.extend([1.e-3] * 4)
-    ADVs.extend([0] * 4)
-    z0s.extend([0.5] * 4)
-    slopes.extend([1./400.] * 4)
+    # AHs.extend([10.,50.,100.,150.])
+    # Kinfs.extend([1.e-3] * 4)
+    # ADVs.extend([0] * 4)
+    # z0s.extend([0.5] * 4)
+    # slopes.extend([1./400.] * 4)
 
+    # Production runs Layer-Release
+    # if end spacing is dz (e.g. 500m), then mny0 = (z0*d-dz)/(slope*Ly)
+    # mny0s = [1.4/3.,1.6/3.,1.8/3.] * 
+    # Kinfs  = [1.e-5,1.e-3] * 3
+    # ADVs   = [2] * 6
+    # AH = [10.] * 6 + [100.] * 6
+
+    AHs     = [10., 10., 100., 100.]
+    mny0s  = [1.6/3.] * 4
+    Kinfs  = [1.e-5,1.e-3] * 2
+    ADVs   = [2] * 4
+        
     # # Test runs:
     # AHs = [0.]
     # ADVs = [2]
@@ -436,16 +448,19 @@ if __name__ == "__main__":
     for ii in range(len(AHs)):
 
         input_dict = default_input_dict.copy()
-        input_dict['z0'] = z0s[ii]
-        input_dict['AH'] = AHs[ii]
+        input_dict['z0'] = 10.
         input_dict['ADV'] = ADVs[ii]
+        input_dict['slope'] = 1./200.
+        input_dict['AH'] = AHs[ii]
         input_dict['Kinf'] = Kinfs[ii]
-        input_dict['slope'] = slopes[ii]
+        input_dict['mny0'] = mny0s[ii]
+        input_dict['trItype'] = 2
         run_sim(rundir,plot=plot,**input_dict)
-        z0str = ('%1.4f' % z0s[ii]).replace('.','p')
+        # z0str = ('%1.4f' % z0s[ii]).replace('.','p')
         Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
         slopestr = '%03d' % (1./slopes[ii])
-        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s/' % (z0str,AHs[ii],ADVs[ii],Kinfstr,slopestr)
+        mny0str  = ('%0.4f' % mny0s[ii]).replace('.','p')
+        outdir = outfold + 'AH_%03d_ADV_%01d_Kinf_%s_mny0_%s_slope_%s/' % (AHs[ii],ADVs[ii],Kinfstr,mny0str,slopestr)
         print(outdir)
         merge_move(rundir,outdir)
 
