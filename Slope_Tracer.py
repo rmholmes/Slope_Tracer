@@ -287,6 +287,9 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     moments.add_task("integ(integ(tr*V*y,'z'),'y')", layout='g', name = 'Vytr')
     moments.add_task("integ(integ(tr*V*z,'z'),'y')", layout='g', name = 'Vztr')
 
+    # Z VAR terms:
+    moments.add_task("integ(integ(z*Kz*tr,'z'),'y')", layout='g', name = 'zKztr')
+
     # B COM terms:
     moments.add_task("integ(integ(tr*V*By,'z'),'y')", layout='g', name = 'VtrBy')
     moments.add_task("integ(integ(tr*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBy')
@@ -424,11 +427,11 @@ if __name__ == "__main__":
     slopes.extend([1./400.] * 4)
 
     # # Test runs:
-    # AHs = [0.,0.,0.,100.,100.]
-    # ADVs = [0,0,2,0,2]
-    # Kinfs = [1.e-3] + [1.e-5] * 4
-    # slopes = [1./400.] * 5
-    # z0s = [0.5] * 5
+    # AHs = [0.]
+    # ADVs = [2]
+    # Kinfs = [1.e-5]
+    # slopes = [1./400.]
+    # z0s = [0.5]
 
     for ii in range(len(AHs)):
 
