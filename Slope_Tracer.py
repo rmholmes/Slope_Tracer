@@ -461,11 +461,13 @@ if __name__ == "__main__":
     # ADVs   = [2] * 6
     # slopes = [1/200.] * 6
 
-    mny0s = [1.4/3.] * 2
-    AHs = [10.] * 2
-    Kinfs  = [1.e-5] * 2
-    ADVs   = [2] * 2
-    slopes = [1/100., 1/400.]
+    # Slope layer runs:
+    mny0s = [1.6/3.] * 2 + [1.7/3.]
+    AHs = [10.] * 3
+    Kinfs  = [1.e-5] * 3
+    ADVs   = [2] * 3
+    slopes = [1/100., 1/400., 1/100.]
+    z0s = [20., 5., 20.]
 
     # # Test runs:
     # AHs = [0.]
@@ -478,21 +480,22 @@ if __name__ == "__main__":
     for ii in range(len(AHs)):
 
         input_dict = default_input_dict.copy()
-#        input_dict['z0'] = z0s[ii]
-        input_dict['z0'] = 10.#z0s[ii]
+        input_dict['z0'] = z0s[ii]
+#        input_dict['z0'] = 10.#z0s[ii]
         input_dict['ADV'] = ADVs[ii]
         input_dict['slope'] = slopes[ii]
         input_dict['AH'] = AHs[ii]
         input_dict['Kinf'] = Kinfs[ii]
-        input_dict['Lz'] = 4000.
-        input_dict['nz'] = 256
+        input_dict['mny0'] = mny0s[ii]
+#        input_dict['Lz'] = 4000.
+#        input_dict['nz'] = 256
         input_dict['trItype'] = 2
         run_sim(rundir,plot=plot,**input_dict)
-        # z0str = ('%1.4f' % z0s[ii]).replace('.','p')
+        z0str = ('%1.4f' % z0s[ii]).replace('.','p')
         Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
         slopestr = '%03d' % (1./slopes[ii])
         mny0str  = ('%0.4f' % mny0s[ii]).replace('.','p')
-        outdir = outfold + 'AH_%03d_ADV_%01d_Kinf_%s_mny0_%s_slope_%s_Lz4000/' % (AHs[ii],ADVs[ii],Kinfstr,mny0str,slopestr)
+        outdir = outfold + 'AH_%03d_ADV_%01d_Kinf_%s_mny0_%s_slope_%s_z0_%s/' % (AHs[ii],ADVs[ii],Kinfstr,mny0str,slopestr,z0str)
 #        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s/' % (z0str,AHs[ii],ADVs[ii],Kinfstr,slopestr)
         print(outdir)
         merge_move(rundir,outdir)
