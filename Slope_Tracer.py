@@ -391,8 +391,8 @@ if __name__ == "__main__":
     rank   = comm.Get_rank()
     rundir = '/home/z3500785/dedalus_rundir/';
     outbase = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/';
-    outfold = outbase + 'prodruns_layer30-08-18/'
-    # outfold = outbase + 'prodruns24-08-18/'
+    # outfold = outbase + 'prodruns_layer30-08-18/'
+    outfold = outbase + 'prodruns24-08-18/'
 
     plot = False
     # # Production runs Point-Release -------------------
@@ -461,13 +461,13 @@ if __name__ == "__main__":
     # ADVs   = [2] * 6
     # slopes = [1/200.] * 6
 
-    # Slope layer runs:
-    mny0s = [1.6/3.] * 2 + [1.7/3.]
-    AHs = [10.] * 3
-    Kinfs  = [1.e-5] * 3
-    ADVs   = [2] * 3
-    slopes = [1/100., 1/400., 1/100.]
-    z0s = [20., 5., 20.]
+    # # Slope layer runs:
+    # mny0s = [1.6/3.] * 2 + [1.7/3.]
+    # AHs = [10.] * 3
+    # Kinfs  = [1.e-5] * 3
+    # ADVs   = [2] * 3
+    # slopes = [1/100., 1/400., 1/100.]
+    # z0s = [20., 5., 20.]
 
     # # Test runs:
     # AHs = [0.]
@@ -476,27 +476,33 @@ if __name__ == "__main__":
     # slopes = [1./400.]
     # z0s = [0.5]
     # AHs = [0.]
+
+    AHs = [0]
     
     for ii in range(len(AHs)):
 
         input_dict = default_input_dict.copy()
-        input_dict['z0'] = z0s[ii]
-#        input_dict['z0'] = 10.#z0s[ii]
-        input_dict['ADV'] = ADVs[ii]
-        input_dict['slope'] = slopes[ii]
-        input_dict['AH'] = AHs[ii]
-        input_dict['Kinf'] = Kinfs[ii]
-        input_dict['mny0'] = mny0s[ii]
-#        input_dict['Lz'] = 4000.
-#        input_dict['nz'] = 256
-        input_dict['trItype'] = 2
+#         input_dict['z0'] = z0s[ii]
+# #        input_dict['z0'] = 10.#z0s[ii]
+#         input_dict['ADV'] = ADVs[ii]
+#         input_dict['slope'] = slopes[ii]
+#         input_dict['AH'] = AHs[ii]
+#         input_dict['Kinf'] = Kinfs[ii]
+#         input_dict['mny0'] = mny0s[ii]
+# #        input_dict['Lz'] = 4000.
+# #        input_dict['nz'] = 256
+#         input_dict['trItype'] = 2
+        input_dict['nz'] = 192*2
+        input_dict['dt'] = 2*1.0e5
+        input_dict['sfreq'] = 8
         run_sim(rundir,plot=plot,**input_dict)
-        z0str = ('%1.4f' % z0s[ii]).replace('.','p')
-        Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
-        slopestr = '%03d' % (1./slopes[ii])
-        mny0str  = ('%0.4f' % mny0s[ii]).replace('.','p')
-        outdir = outfold + 'AH_%03d_ADV_%01d_Kinf_%s_mny0_%s_slope_%s_z0_%s/' % (AHs[ii],ADVs[ii],Kinfstr,mny0str,slopestr,z0str)
+        # z0str = ('%1.4f' % z0s[ii]).replace('.','p')
+        # Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
+        # slopestr = '%03d' % (1./slopes[ii])
+        # mny0str  = ('%0.4f' % mny0s[ii]).replace('.','p')
+#        outdir = outfold + 'AH_%03d_ADV_%01d_Kinf_%s_mny0_%s_slope_%s_z0_%s/' % (AHs[ii],ADVs[ii],Kinfstr,mny0str,slopestr,z0str)
 #        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s/' % (z0str,AHs[ii],ADVs[ii],Kinfstr,slopestr)
+        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s_4dt_2dz/' % ('0p5000',0,2,'m5','400')
         print(outdir)
         merge_move(rundir,outdir)
 
