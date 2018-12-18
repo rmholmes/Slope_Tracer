@@ -100,7 +100,6 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     #    K.set_scales(domain.dealias)
     K.differentiate('z',out=Kz)
     
-
     # Upslope Velocity
     PSI = domain.new_field()
     PSI.meta['y']['constant'] = True
@@ -330,7 +329,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
         ym, zm = np.meshgrid(y,z)
         zt = np.cos(theta)*zm + np.sin(theta)*ym
         yt = -np.sin(theta)*zm + np.cos(theta)*ym
-        p = ax.pcolormesh(yt/1.0e3, zt, tr['g'].T/np.max(tr['g']), cmap='RdBu_r', vmin=0., vmax=1.);
+        p = ax.pcolormesh(yt/1.0e3, zt, tr['g'].T/np.max(tr['g']), cmap='RdBu_r', vmin=-1., vmax=1.);
         Buo = N2*np.sin(theta)*ym + N2*np.cos(theta)*(zm + np.exp(-q0*zm)*np.cos(q0*zm)/q0)
         ax.contour(yt/1.0e3, zt, Buo, 30, colors='k')
         ax.plot(y/1.0e3, slope*y,'k-', linewidth=4)
@@ -395,6 +394,7 @@ if __name__ == "__main__":
     outfold = outbase + 'prodruns24-08-18/'
 
     plot = False
+
     # # Production runs Point-Release -------------------
     # # AH=0:
     # ADVs   = [0,0,0,1,1,1,2,2,2]
@@ -469,19 +469,14 @@ if __name__ == "__main__":
     # slopes = [1/100., 1/400., 1/100.]
     # z0s = [20., 5., 20.]
 
-    # # Test runs:
-    # AHs = [0.]
-    # ADVs = [2]
-    # Kinfs = [1.e-5]
-    # slopes = [1./400.]
-    # z0s = [0.5]
-    # AHs = [0.]
+    # Test runs:
+    Pr0s = [1./10.]#0.,1000.];
 
-    AHs = [0]
     
-    for ii in range(len(AHs)):
+    for ii in range(len(Pr0s)):
 
         input_dict = default_input_dict.copy()
+        input_dict['Pr0'] = Pr0s[ii]
 #         input_dict['z0'] = z0s[ii]
 # #        input_dict['z0'] = 10.#z0s[ii]
 #         input_dict['ADV'] = ADVs[ii]
@@ -492,9 +487,9 @@ if __name__ == "__main__":
 # #        input_dict['Lz'] = 4000.
 # #        input_dict['nz'] = 256
 #         input_dict['trItype'] = 2
-        input_dict['nz'] = 192*2
-        input_dict['dt'] = 2*1.0e5
-        input_dict['sfreq'] = 8
+        # input_dict['nz'] = 192*2
+        # input_dict['dt'] = 2*1.0e5
+        # input_dict['sfreq'] = 8
         run_sim(rundir,plot=plot,**input_dict)
         # z0str = ('%1.4f' % z0s[ii]).replace('.','p')
         # Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
@@ -502,7 +497,7 @@ if __name__ == "__main__":
         # mny0str  = ('%0.4f' % mny0s[ii]).replace('.','p')
 #        outdir = outfold + 'AH_%03d_ADV_%01d_Kinf_%s_mny0_%s_slope_%s_z0_%s/' % (AHs[ii],ADVs[ii],Kinfstr,mny0str,slopestr,z0str)
 #        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s/' % (z0str,AHs[ii],ADVs[ii],Kinfstr,slopestr)
-        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s_4dt_2dz/' % ('0p5000',0,2,'m5','400')
+        outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_Pr0_%3.2f/' % (Pr0s[ii])
         print(outdir)
         merge_move(rundir,outdir)
 
