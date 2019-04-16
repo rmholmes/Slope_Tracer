@@ -469,15 +469,17 @@ if __name__ == "__main__":
     # slopes = [1/100., 1/400., 1/100.]
     # z0s = [20., 5., 20.]
 
-    # Test runs:
-    Pr0s = [1./10.]#0.,1000.];
+    # # Test runs:
+    # Pr0s = [1./10.]#0.,1000.];
 
+    # Varying d:
+    ds = [200.]
     
-    for ii in range(len(Pr0s)):
+    for ii in range(len(ds)):
 
         input_dict = default_input_dict.copy()
-        input_dict['Pr0'] = Pr0s[ii]
-#         input_dict['z0'] = z0s[ii]
+        # input_dict['Pr0'] = Pr0s[ii]
+        input_dict['d'] = ds[ii]
 # #        input_dict['z0'] = 10.#z0s[ii]
 #         input_dict['ADV'] = ADVs[ii]
 #         input_dict['slope'] = slopes[ii]
@@ -496,8 +498,9 @@ if __name__ == "__main__":
         # slopestr = '%03d' % (1./slopes[ii])
         # mny0str  = ('%0.4f' % mny0s[ii]).replace('.','p')
 #        outdir = outfold + 'AH_%03d_ADV_%01d_Kinf_%s_mny0_%s_slope_%s_z0_%s/' % (AHs[ii],ADVs[ii],Kinfstr,mny0str,slopestr,z0str)
-#        outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s/' % (z0str,AHs[ii],ADVs[ii],Kinfstr,slopestr)
-        outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_Pr0_%3.2f/' % (Pr0s[ii])
+        # outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s
+        outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_d_%03d/' % (ds[ii])
+        # outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_Pr0_%3.2f/' % (Pr0s[ii])
         print(outdir)
         merge_move(rundir,outdir)
 
