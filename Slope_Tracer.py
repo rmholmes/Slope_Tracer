@@ -36,7 +36,8 @@ ny, nz = (384, 192)
 # Physical parameters
 N2 = 1.0e-6
 slope = 1/400.0
-Pr0 = 1.0
+Prv0 = 1.0 # upslope Pr (in q0)
+SPru0i = 0.0 # across-slope (S*Pru0)^(-1) (interior db/dz reduction)
 
 Kinf = 1.0e-5
 K0 = 1.0e-3
@@ -65,7 +66,7 @@ dt=8*lday
 Ttot = 3200
 sfreq = 2
 
-accept_list = ['Ly','Lz','ny','nz','N2','slope','Pr0',
+accept_list = ['Ly','Lz','ny','nz','N2','slope','Prv0','SPru0i',
                'Kinf','K0','d','AH','AHvar','trItype','z0','sz0',
                'c0','sy0','mxy0','mny0','ADV','lday','dt',
                'Ttot','sfreq']
@@ -74,7 +75,7 @@ for i in accept_list:
     exec('default_input_dict[i] = %s' % i)
 
 # Run a simulation -----------------------------------------------------------------------------------------
-def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
+def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
                Kinf,K0,d,AH,AHvar,trItype,z0,sz0,
                c0,sy0,mxy0,mny0,ADV,lday,dt,
                Ttot,sfreq,plot):
@@ -111,15 +112,15 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     Vbbl.meta['y']['constant'] = True
 
     theta = np.arctan(slope)
-    q0 = (N2*np.sin(theta)*np.sin(theta)/4.0/Pr0/K0/K0)**(1.0/4.0)
+    q0 = (N2*np.sin(theta)*np.sin(theta)/4.0/Prv0/K0/K0*(1.+SPru0i))**(1.0/4.0)
 
-    PSI['g'] = np.cos(theta)/np.sin(theta)*(1.0-np.exp(-q0*z)*(np.cos(q0*z)+np.sin(q0*z)))
-    PSIbbl['g'] = PSI['g']*K0
+    PSI['g'] = np.cos(theta)/np.sin(theta)/(1.+SPru0i)*(1.0-np.exp(-q0*z)*(np.cos(q0*z)+np.sin(q0*z)))
+    PSIbbl['g'] = PSI['g']*(K0+SPru0i*Kinf)
 
     if ADV == 2:
-        PSI['g'] = PSI['g']*K['g']  # SML + BBL
+        PSI['g'] = PSI['g']*(K['g']+SPru0i*Kinf)  # SML + BBL
     elif ADV == 1:
-        PSI['g'] = PSI['g']*K0      # BBL
+        PSI['g'] = PSI['g']*(K0+SPru0i*Kinf)      # BBL
     else:
         PSI['g'] = 0.0              # No ADV
         PSIbbl['g'] = 0.0
@@ -147,11 +148,16 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     Bz = domain.new_field();Bz.meta['y']['constant'] = True
     Bzp = domain.new_field();Bzp.meta['y']['constant'] = True
     B = domain.new_field()
-    B['g'] = N2*np.sin(theta)*y + N2*np.cos(theta)*(z + np.exp(-q0*z)*np.cos(q0*z)/q0)
+    B['g'] = N2*np.sin(theta)*y + N2*np.cos(theta)/(1.+SPru0i)*(z +
+                np.exp(-q0*z)*np.cos(q0*z)/q0*(1.+SPru0i*Kinf/K0) +
+                SPru0i*d*np.log(1.+Kinf/K0*(np.exp(z/d)-1.)))
     f = domain.new_field();f.meta['y']['constant'] = True
     f['g'] = np.exp(-q0*z)*(np.cos(q0*z)+np.sin(q0*z))
     Bzp['g'] = -N2*np.cos(theta)*f['g']
     Bz['g'] = N2*np.cos(theta) + Bzp['g']
+
+    # NOTE: SPru0i non-zero case only works with Kinf not equal to 0.
+    # NOTE: Bzp terms only work when SPru0i=0
 
     # Equations and Solver
     problem = de.IVP(domain, variables=['tr','trz'])
@@ -231,7 +237,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
     Itot = solver.stop_iteration
 
     # Save parameters:
-    np.savez(rundir + 'runparams',Ly=Ly,Lz=Lz,N2=N2,slope=slope,theta=theta,Pr0=Pr0,Kinf=Kinf,K0=K0,d=d,AH=AH,AHvar=AHvar,
+    np.savez(rundir + 'runparams',Ly=Ly,Lz=Lz,N2=N2,slope=slope,theta=theta,Prv0=Prv0,SPru0i=SPru0i,Kinf=Kinf,K0=K0,d=d,AH=AH,AHvar=AHvar,
              q0=q0,By=By,sy=sy,sz=sz,cy=cy,cz=cz,lday=lday,dt=dt,sfreq=sfreq,Itot=Itot,Ttot=Ttot,mxy0=mxy0,mny0=mny0)
 
     ## Analysis
@@ -331,6 +337,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Pr0,
         yt = -np.sin(theta)*zm + np.cos(theta)*ym
         p = ax.pcolormesh(yt/1.0e3, zt, tr['g'].T/np.max(tr['g']), cmap='RdBu_r', vmin=-1., vmax=1.);
         Buo = N2*np.sin(theta)*ym + N2*np.cos(theta)*(zm + np.exp(-q0*zm)*np.cos(q0*zm)/q0)
+        # NOTE: This plotting only works with SPru0i=0
         ax.contour(yt/1.0e3, zt, Buo, 30, colors='k')
         ax.plot(y/1.0e3, slope*y,'k-', linewidth=4)
         plt.colorbar(p, ax = ax)
@@ -470,22 +477,26 @@ if __name__ == "__main__":
     # z0s = [20., 5., 20.]
 
     # # Test runs:
-    # Pr0s = [1./10.]#0.,1000.];
+    # Prv0s = [1./10.]#0.,1000.];
 
-    # Varying d:
-    ds = [200.]
-    
-    for ii in range(len(ds)):
+    # # Varying d:
+    # ds = [200.]
+
+    # Varying SPru0i:
+    Prus = [0.25, 1., 4., 8., 16.];
+    Prvs = [1.25, 2., 5., 9., 17.];
+
+    for ii in range(len(Prus)):
 
         input_dict = default_input_dict.copy()
-        # input_dict['Pr0'] = Pr0s[ii]
-        input_dict['d'] = ds[ii]
-# #        input_dict['z0'] = 10.#z0s[ii]
+        input_dict['SPru0i'] = Prus[ii]
+        input_dict['Prv0'] = Prvs[ii]
 #         input_dict['ADV'] = ADVs[ii]
 #         input_dict['slope'] = slopes[ii]
 #         input_dict['AH'] = AHs[ii]
 #         input_dict['Kinf'] = Kinfs[ii]
 #         input_dict['mny0'] = mny0s[ii]
+#         input_dict['z0'] = #z0s[ii]
 # #        input_dict['Lz'] = 4000.
 # #        input_dict['nz'] = 256
 #         input_dict['trItype'] = 2
@@ -499,8 +510,8 @@ if __name__ == "__main__":
         # mny0str  = ('%0.4f' % mny0s[ii]).replace('.','p')
 #        outdir = outfold + 'AH_%03d_ADV_%01d_Kinf_%s_mny0_%s_slope_%s_z0_%s/' % (AHs[ii],ADVs[ii],Kinfstr,mny0str,slopestr,z0str)
         # outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s
-        outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_d_%03d/' % (ds[ii])
-        # outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_Pr0_%3.2f/' % (Pr0s[ii])
+        # outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_d_%03d/' % (ds[ii])
+        outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_Prv0_%3.2f_SPru0i_%3.2f/' % (Prvs[ii],Prus[ii])
         print(outdir)
         merge_move(rundir,outdir)
 
