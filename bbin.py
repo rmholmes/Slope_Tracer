@@ -32,7 +32,7 @@ def trbin(y,z,tr,B,N2,theta,Lz,Ly,q0):
 
     return(ba,trC)
 
-def trbinI(y,z,tr,N2,theta,Lz,Ly,q0):
+def trbinI(y,z,tr,N2,theta,Lz,Ly,q0,Kinf,K0,d,SPru0i=0.):
     """Bin the 2D tracer distribution tr(y,z) into buoyancy bins by first
     interpolating onto a high-resolution y-z grid.
 
@@ -50,7 +50,10 @@ def trbinI(y,z,tr,N2,theta,Lz,Ly,q0):
     trhr = f(yhr,zhr)
 
     [ym,zm] = np.meshgrid(yhr,zhr)
-    Bhr = N2*np.sin(theta)*ym + N2*np.cos(theta)*(zm + np.exp(-q0*zm)*np.cos(q0*zm)/q0)
+    # Bhr = N2*np.sin(theta)*ym + N2*np.cos(theta)*(zm + np.exp(-q0*zm)*np.cos(q0*zm)/q0)
+    Bhr = N2*np.sin(theta)*ym + N2*np.cos(theta)/(1.+SPru0i)*(zm +
+                np.exp(-q0*zm)*np.cos(q0*zm)/q0*(1.+SPru0i*Kinf/K0) +
+                SPru0i*d*np.log(1.+Kinf/K0*(np.exp(zm/d)-1.)))
 
     dy = yhr[1:]-yhr[:-1];dz = zhr[1:]-zhr[:-1];
     dA = np.tile(dy,[len(zhr)-1,1]).T*np.tile(dz,[len(yhr)-1,1]);
