@@ -153,11 +153,10 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
                 SPru0i*d*np.log(1.+Kinf/K0*(np.exp(z/d)-1.)))
     f = domain.new_field();f.meta['y']['constant'] = True
     f['g'] = np.exp(-q0*z)*(np.cos(q0*z)+np.sin(q0*z))
-    Bzp['g'] = -N2*np.cos(theta)*f['g']
-    Bz['g'] = N2*np.cos(theta) + Bzp['g']
-
+    Bzp['g'] = -N2*np.cos(theta)/(1+SPru0i)*f['g']
+    Bz['g'] = (N2*np.cos(theta)/(1+SPru0i) + Bzp['g'])*(1+SPru0i*Kinf/K['g'])
+  
     # NOTE: SPru0i non-zero case only works with Kinf not equal to 0.
-    # NOTE: Bzp terms only work when SPru0i=0
 
     # Equations and Solver
     problem = de.IVP(domain, variables=['tr','trz'])
@@ -176,6 +175,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     problem.parameters['Hbbl'] = Hbbl
     problem.parameters['costh'] = np.cos(theta)
     problem.parameters['sinth'] = np.sin(theta)
+    problem.parameters['SPru0i'] = SPru0i
 
     # Only Interior buoyancy influences AH (but full B used for binning):
     # problem.add_equation("dt(tr) + V*dy(tr) - (AH*costh**2. + K)*d(tr,y=2) + 2*AH*sinth*costh*dy(trz) - Kz*trz - (AH*sinth**2.+K)*dz(trz) = 0.")
@@ -302,7 +302,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
 
     moments.add_task("integ(integ(K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtryBy')
     moments.add_task("integ(integ(K*Hbbl*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtryBy')
-    moments.add_task("integ(integ(Kz*tr*N2*costh,'z'),'y')", layout='g', name = 'KztrBZ')
+    moments.add_task("integ(integ(Kz*tr*N2*costh/(1+SPru0i),'z'),'y')", layout='g', name = 'KztrBZ')
     moments.add_task("integ(integ(K*trz*Bz,'z'),'y')", layout='g', name = 'KtrzBz')
     moments.add_task("integ(integ(K*trz*Bzp,'z'),'y')", layout='g', name = 'KtrzBzp')
     moments.add_task("integ(integ(K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrzBz')
@@ -316,8 +316,8 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     moments.add_task("integ(integ(B*K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtryBBy')
     moments.add_task("integ(integ(B*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrzBBz')
     moments.add_task("integ(integ(B*K*trz*Bzp,'z'),'y')", layout='g', name = 'KtrzBBzp')
-    moments.add_task("integ(integ(tr*K*Bzp*N2*costh,'z'),'y')", layout='g', name = 'KtrBZBzp')
-    moments.add_task("integ(integ(B*Kz*tr*N2*costh,'z'),'y')", layout='g', name = 'KztrBBZ')
+    moments.add_task("integ(integ(tr*K*Bzp*N2*costh/(1+SPru0i),'z'),'y')", layout='g', name = 'KtrBZBzp')
+    moments.add_task("integ(integ(B*Kz*tr*N2*costh/(1+SPru0i),'z'),'y')", layout='g', name = 'KztrBBZ')
     moments.add_task("integ(integ(B*K*Hbbl*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtryBBy')
     moments.add_task("integ(integ(B*K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrzBBz')
 
@@ -482,17 +482,17 @@ if __name__ == "__main__":
     # # Varying d:
     # ds = [200.]
 
-    # Varying SPru0i:
-    Prus = [0.25, 1., 4., 8., 16.];
-    Prvs = [1.25, 2., 5., 9., 17.];
+    # # Varying SPru0i:
+    Prus = [2.];
+    Prvs = [1.];#x+1. for x in Prus];
 
-    for ii in range(len(Prus)):
+    for ii in range(1):#len(Prus)):
 
         input_dict = default_input_dict.copy()
         input_dict['SPru0i'] = Prus[ii]
         input_dict['Prv0'] = Prvs[ii]
 #         input_dict['ADV'] = ADVs[ii]
-#         input_dict['slope'] = slopes[ii]
+        # input_dict['slope'] = 1./133.
 #         input_dict['AH'] = AHs[ii]
 #         input_dict['Kinf'] = Kinfs[ii]
 #         input_dict['mny0'] = mny0s[ii]
@@ -512,6 +512,7 @@ if __name__ == "__main__":
         # outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s
         # outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_d_%03d/' % (ds[ii])
         outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_Prv0_%3.2f_SPru0i_%3.2f/' % (Prvs[ii],Prus[ii])
+        # outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_133/'
         print(outdir)
         merge_move(rundir,outdir)
 
