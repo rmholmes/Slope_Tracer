@@ -195,9 +195,10 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     problem.substitutions['KHzz'] = "sinth**2."
 
     # Two options:
-    # - Try uping the level of non-constant coefficients cutoff (how many coefficient it uses to expand exponentials.
-    # - Adding diffusion to prevent negative diffusivities (look for theory on diagnoally dominant matrices). (off-diagnal can be negative
+    # - Try uping the level of non-constant coefficients cutoff (how many coefficient it uses to expand exponentials).
+    # - Adding diffusion to prevent negative diffusivities (look for theory on diagnoally dominant matrices). (off-diagnal can be negative)
     # - Approximate every single term with a polynomial (and make sure matrix is positive definite). Make sure polynomials are less than half resolution.
+    # - Try a different time stepper?
     
     # LHS fluxes:
     problem.substitutions['FHy']   = "-AHdd*(KHyy*dy(tr) + KHyz*trz)"
@@ -483,14 +484,18 @@ if __name__ == "__main__":
     # ds = [200.]
 
     # # Varying SPru0i:
-    Prus = [2.];
-    Prvs = [1.];#x+1. for x in Prus];
+#    Prus = [2.];
+#    Prvs = [1.];#x+1. for x in Prus];
+
+    N2s = [1.0e-06/3.0]
 
     for ii in range(1):#len(Prus)):
 
         input_dict = default_input_dict.copy()
-        input_dict['SPru0i'] = Prus[ii]
-        input_dict['Prv0'] = Prvs[ii]
+        # input_dict['SPru0i'] = Prus[ii]
+        # input_dict['Prv0'] = Prvs[ii]
+#        input_dict['SPru0i'] = Prus[ii]
+        input_dict['N2'] = N2s[ii]
 #         input_dict['ADV'] = ADVs[ii]
         # input_dict['slope'] = 1./133.
 #         input_dict['AH'] = AHs[ii]
@@ -511,7 +516,7 @@ if __name__ == "__main__":
 #        outdir = outfold + 'AH_%03d_ADV_%01d_Kinf_%s_mny0_%s_slope_%s_z0_%s/' % (AHs[ii],ADVs[ii],Kinfstr,mny0str,slopestr,z0str)
         # outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s
         # outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_d_%03d/' % (ds[ii])
-        outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_Prv0_%3.2f_SPru0i_%3.2f/' % (Prvs[ii],Prus[ii])
+        outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_N2_0p33333em7/'
         # outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_133/'
         print(outdir)
         merge_move(rundir,outdir)
