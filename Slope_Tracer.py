@@ -45,6 +45,7 @@ d = 500.0
 
 AH = 0.0
 AHvar = 1 # 1 = Reduced in BBL, 0 = Constant
+AHfull = 0 # 0 = horizontal diffusion, 1 = along-isopycnal diffusion
 
 # Initial tracer parameters
 trItype = 1 # 1 = point, 2 = layer
@@ -67,7 +68,7 @@ Ttot = 3200
 sfreq = 2
 
 accept_list = ['Ly','Lz','ny','nz','N2','slope','Prv0','SPru0i',
-               'Kinf','K0','d','AH','AHvar','trItype','z0','sz0',
+               'Kinf','K0','d','AH','AHvar','AHfull','trItype','z0','sz0',
                'c0','sy0','mxy0','mny0','ADV','lday','dt',
                'Ttot','sfreq']
 default_input_dict = {}
@@ -76,7 +77,7 @@ for i in accept_list:
 
 # Run a simulation -----------------------------------------------------------------------------------------
 def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
-               Kinf,K0,d,AH,AHvar,trItype,z0,sz0,
+               Kinf,K0,d,AH,AHvar,AHfull,trItype,z0,sz0,
                c0,sy0,mxy0,mny0,ADV,lday,dt,
                Ttot,sfreq,plot):
 
@@ -159,7 +160,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     # NOTE: SPru0i non-zero case only works with Kinf not equal to 0.
 
     # Equations and Solver
-    problem = de.IVP(domain, variables=['tr','trz'])
+    problem = de.IVP(domain, variables=['tr','trz'], ncc_cutoff=1e-20)
     problem.meta[:]['z']['dirichlet'] = True
 
     problem.parameters['N2'] = N2
@@ -177,29 +178,22 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     problem.parameters['sinth'] = np.sin(theta)
     problem.parameters['SPru0i'] = SPru0i
 
-    # Only Interior buoyancy influences AH (but full B used for binning):
-    # problem.add_equation("dt(tr) + V*dy(tr) - (AH*costh**2. + K)*d(tr,y=2) + 2*AH*sinth*costh*dy(trz) - Kz*trz - (AH*sinth**2.+K)*dz(trz) = 0.")
-
     # Flux-formulation:
     # Advection and isotropic diffusion fluxes:
     problem.substitutions['Fy'] = "V*tr - K*dy(tr)" 
     problem.substitutions['Fz'] = "     - K*trz"
-    # LHS K-tensor terms:
-    # problem.parameters['f'] = f
-    # problem.substitutions['GB2'] = "1 + costh**2.*f*(f-2)"
-    # problem.substitutions['KHyy'] = "sinth**2./GB2"
-    # problem.substitutions['KHyz'] = "-costh*sinth*(1-f)/GB2"
-    # problem.substitutions['KHzz'] = "costh**2.*(1-f)**2./GB2"
-    problem.substitutions['KHyy'] = "costh**2"
-    problem.substitutions['KHyz'] = "-costh*sinth"
-    problem.substitutions['KHzz'] = "sinth**2."
 
-    # Two options:
-    # - Try uping the level of non-constant coefficients cutoff (how many coefficient it uses to expand exponentials).
-    # - Adding diffusion to prevent negative diffusivities (look for theory on diagnoally dominant matrices). (off-diagnal can be negative)
-    # - Approximate every single term with a polynomial (and make sure matrix is positive definite). Make sure polynomials are less than half resolution.
-    # - Try a different time stepper?
+    # LHS K-tensor terms:
+    if AHfull == 1:                  # Full along-isopycnal diffusion
+        problem.parameters['f'] = f
+    else:                            # Horizontal diffusion
+        problem.parameters['f'] = 0.
     
+    problem.substitutions['GB2'] = "1. + costh**2.*f*(f-2)"
+    problem.substitutions['KHyy'] = "costh**2.*(1-f)**2./GB2"
+    problem.substitutions['KHyz'] = "-costh*sinth*(1-f)/GB2"
+    problem.substitutions['KHzz'] = "sinth**2./GB2"
+
     # LHS fluxes:
     problem.substitutions['FHy']   = "-AHdd*(KHyy*dy(tr) + KHyz*trz)"
     problem.substitutions['FHz']   = "-AHdd*(KHyz*dy(tr) + KHzz*trz)"
@@ -238,7 +232,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     Itot = solver.stop_iteration
 
     # Save parameters:
-    np.savez(rundir + 'runparams',Ly=Ly,Lz=Lz,N2=N2,slope=slope,theta=theta,Prv0=Prv0,SPru0i=SPru0i,Kinf=Kinf,K0=K0,d=d,AH=AH,AHvar=AHvar,
+    np.savez(rundir + 'runparams',Ly=Ly,Lz=Lz,N2=N2,slope=slope,theta=theta,Prv0=Prv0,SPru0i=SPru0i,Kinf=Kinf,K0=K0,d=d,AH=AH,AHvar=AHvar,AHfull=AHfull,
              q0=q0,By=By,sy=sy,sz=sz,cy=cy,cz=cz,lday=lday,dt=dt,sfreq=sfreq,Itot=Itot,Ttot=Ttot,mxy0=mxy0,mny0=mny0)
 
     ## Analysis
@@ -249,6 +243,10 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     ifields.add_task("AHdd", layout='g', name = 'AHdd')
     ifields.add_task("V", layout='g', name = 'V')
     ifields.add_task("Bz", layout='g', name = 'Bz')
+    ifields.add_task("1. + costh**2.*f*(f-2)", layout='g', name='GB2')
+    ifields.add_task("costh**2.*(1-f)**2./(1. + costh**2.*f*(f-2))", layout='g', name='KHyy')
+    ifields.add_task("-costh*sinth*(1-f)/(1. + costh**2.*f*(f-2))", layout='g', name='KHyz')
+    ifields.add_task("sinth**2./(1. + costh**2.*f*(f-2))", layout='g', name='KHzz')
 
     # Snapshots file:
     snapshots = solver.evaluator.add_file_handler(rundir + 'snapshots', iter=sfreq, max_writes=20000)
@@ -263,6 +261,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     snapshots.add_task("integ(integ(tr,'y'),'z')", layout = 'g', name = 'trT')
     snapshots.add_task("integ(integ(tr*y,'y'),'z')", layout='g', name = 'ym1i')
     snapshots.add_task("integ(integ(tr*z,'z'),'y')", layout='g', name = 'zm1i')
+
 
     # Moment time series file:
     moments = solver.evaluator.add_file_handler(rundir + 'moments', iter=1, max_writes=20000)
@@ -422,7 +421,7 @@ if __name__ == "__main__":
 
     # AHs    = [0.] * len(ADVs)
 
-    # # AH non-zero:
+    # # AH non-zero runs ---------------------------
     # AHs.extend([10.,20.,30.,40.,50.,60.,70.,80.,90.,100.,125.,150.,175.,200.] * 3)
     # ADVs.extend([0] * 14 + [1]*14 + [2]*14)
     # z0s.extend([0.5] * 14 * 3)
@@ -447,7 +446,7 @@ if __name__ == "__main__":
     # Kinfs  = [1.e-5] * len(z0s)
     # slopes = [1./400.] * len(z0s)
 
-    # Production runs Layer-Release
+    # Production runs Layer-Release -----------------
     # if end spacing is dz (e.g. 500m), then mny0 = (z0*d-dz)/(slope*Ly)
     # mny0s = [1.4/3.,1.8/3.] * 4
     # Kinfs  = [1.e-5,1.e-5,1.e-3,1.e-3] * 2
@@ -469,55 +468,21 @@ if __name__ == "__main__":
     # ADVs   = [2] * 6
     # slopes = [1/200.] * 6
 
-    # # Slope layer runs:
-    # mny0s = [1.6/3.] * 2 + [1.7/3.]
-    # AHs = [10.] * 3
-    # Kinfs  = [1.e-5] * 3
-    # ADVs   = [2] * 3
-    # slopes = [1/100., 1/400., 1/100.]
-    # z0s = [20., 5., 20.]
-
-    # # Test runs:
-    # Prv0s = [1./10.]#0.,1000.];
-
-    # # Varying d:
-    # ds = [200.]
-
-    # # Varying SPru0i:
-#    Prus = [2.];
-#    Prvs = [1.];#x+1. for x in Prus];
-
-    N2s = [1.0e-06/3.0]
-
     for ii in range(1):#len(Prus)):
 
         input_dict = default_input_dict.copy()
-        # input_dict['SPru0i'] = Prus[ii]
-        # input_dict['Prv0'] = Prvs[ii]
-#        input_dict['SPru0i'] = Prus[ii]
-        input_dict['N2'] = N2s[ii]
 #         input_dict['ADV'] = ADVs[ii]
-        # input_dict['slope'] = 1./133.
 #         input_dict['AH'] = AHs[ii]
 #         input_dict['Kinf'] = Kinfs[ii]
 #         input_dict['mny0'] = mny0s[ii]
 #         input_dict['z0'] = #z0s[ii]
-# #        input_dict['Lz'] = 4000.
-# #        input_dict['nz'] = 256
 #         input_dict['trItype'] = 2
-        # input_dict['nz'] = 192*2
-        # input_dict['dt'] = 2*1.0e5
-        # input_dict['sfreq'] = 8
         run_sim(rundir,plot=plot,**input_dict)
         # z0str = ('%1.4f' % z0s[ii]).replace('.','p')
         # Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
         # slopestr = '%03d' % (1./slopes[ii])
         # mny0str  = ('%0.4f' % mny0s[ii]).replace('.','p')
-#        outdir = outfold + 'AH_%03d_ADV_%01d_Kinf_%s_mny0_%s_slope_%s_z0_%s/' % (AHs[ii],ADVs[ii],Kinfstr,mny0str,slopestr,z0str)
-        # outdir = outfold + 'z0_%s_AH_%03d_ADV_%01d_Kinf_%s_slope_%s
-        # outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_d_%03d/' % (ds[ii])
-        outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400_N2_0p33333em7/'
-        # outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_133/'
+        outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400/'
         print(outdir)
         merge_move(rundir,outdir)
 
