@@ -475,17 +475,19 @@ if __name__ == "__main__":
     # AHs = [60.,70.,80.] # set 3
     # AHs = [90.,100.,125.] # set 4
     # AHs = [150.,175.] # set 5
-    AHs = [200.,0.,10.,20.,30.,40.,50.,60.,70.,80.,90.,100.,125.,150.,175.]
-
+    # AHs = [200.,0.,10.,20.,30.,40.,50.,60.,70.,80.,90.,100.,125.,150.,175.]
+    AHs = [200.];
     for ii in range(len(AHs)):
 
         input_dict = default_input_dict.copy()
-        input_dict['dt'] = 8*lday
-        input_dict['sfreq'] = 2
-        input_dict['nz'] = 576
-        input_dict['sz0'] = 3.*576./192.
+        input_dict['dt'] = 4*lday
+        input_dict['sfreq'] = 4
+        input_dict['nz'] = 768
+        input_dict['ny'] = 576
+        input_dict['sz0'] = 3.*768./192.
+        input_dict['sy0'] = 3.*576./384.
         input_dict['AH'] = AHs[ii]
-        input_dict['AHvar'] = 0.
+        input_dict['AHvar'] = 0
         input_dict['AHfull'] = 1
 #         input_dict['ADV'] = ADVs[ii]
 #         input_dict['AH'] = AHs[ii]
@@ -498,7 +500,7 @@ if __name__ == "__main__":
         # Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
         # slopestr = '%03d' % (1./slopes[ii])
         # mny0str  = ('%0.4f' % mny0s[ii]).replace('.','p')
-        outdir = outfold + 'z0_0p5000_AH_%03d_ADV_2_Kinf_m5_slope_400_AHfull_dt8/' % (AHs[ii])
+        outdir = outfold + 'z0_0p5000_AH_%03d_ADV_2_Kinf_m5_slope_400_isoAH/' % (AHs[ii])
         # # outdir = outfold + 'z0_0p5000_AH_010_ADV_2_Kinf_m5_slope_400_nz384/'
         print(outdir)
         merge_move(rundir,outdir)
