@@ -358,6 +358,8 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
                 display.display(f)
             if (solver.iteration-1) % 2 == 0:
                 logger.info('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
+            assert (np.max(tr['g'][:,:])<10.),'blow-up'
+            
     except:
         logger.error('Exception raised, triggering end of main loop.')
         raise
@@ -395,8 +397,8 @@ if __name__ == "__main__":
     comm = MPI.COMM_WORLD
     nprocs = comm.Get_size()
     rank   = comm.Get_rank()
-    rundir = '/home/z3500785/dedalus_rundir/';
-    outbase = '/srv/ccrc/data03/z3500785/dedalus_Slope_Tracer/saveRUNS/';
+    rundir = '/short/e14/rmh561/dedalus/Slope_Tracer/rundir/';
+    outbase = '/g/data/e14/rmh561/Slope_Tracer/saveRUNS/';
     # outfold = outbase + 'prodruns_layer30-08-18/'
     outfold = outbase + 'prodruns24-08-18/'
 
@@ -468,9 +470,23 @@ if __name__ == "__main__":
     # ADVs   = [2] * 6
     # slopes = [1/200.] * 6
 
-    for ii in range(1):#len(Prus)):
+    # AHs = [0.,10.,20.] # set 1
+    # AHs = [30.,40.,50.] # set 2
+    # AHs = [60.,70.,80.] # set 3
+    # AHs = [90.,100.,125.] # set 4
+    # AHs = [150.,175.] # set 5
+    AHs = [200.,0.,10.,20.,30.,40.,50.,60.,70.,80.,90.,100.,125.,150.,175.]
+
+    for ii in range(len(AHs)):
 
         input_dict = default_input_dict.copy()
+        input_dict['dt'] = 8*lday
+        input_dict['sfreq'] = 2
+        input_dict['nz'] = 576
+        input_dict['sz0'] = 3.*576./192.
+        input_dict['AH'] = AHs[ii]
+        input_dict['AHvar'] = 0.
+        input_dict['AHfull'] = 1
 #         input_dict['ADV'] = ADVs[ii]
 #         input_dict['AH'] = AHs[ii]
 #         input_dict['Kinf'] = Kinfs[ii]
@@ -482,10 +498,11 @@ if __name__ == "__main__":
         # Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
         # slopestr = '%03d' % (1./slopes[ii])
         # mny0str  = ('%0.4f' % mny0s[ii]).replace('.','p')
-        outdir = outfold + 'z0_0p5000_AH_000_ADV_2_Kinf_m5_slope_400/'
+        outdir = outfold + 'z0_0p5000_AH_%03d_ADV_2_Kinf_m5_slope_400_AHfull_dt8/' % (AHs[ii])
+        # # outdir = outfold + 'z0_0p5000_AH_010_ADV_2_Kinf_m5_slope_400_nz384/'
         print(outdir)
         merge_move(rundir,outdir)
-
+        
         if rank == 0:
             os.makedirs(outdir, exist_ok=True)
             shutil.move(rundir + 'snapshots/snapshots.h5',outdir + 'snapshots.h5');
