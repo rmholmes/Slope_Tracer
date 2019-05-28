@@ -1,0 +1,12 @@
+#!/bin/bash
+#PBS -N STdt8
+#PBS -l walltime=06:00:00
+#PBS -l ncpus=64
+#PBS -l mem=128GB
+#PBS -l wd
+#PBS -q express
+#PBS -M ryan.holmes@unsw.edu.au
+
+source setup.sh
+
+mpiexec -np 64 python3 Slope_Tracer.py
