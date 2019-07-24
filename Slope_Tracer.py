@@ -487,22 +487,26 @@ if __name__ == "__main__":
 #         outdir = outfold + 'AH_%03d_ADV_2_Kinf_m5_mny0_%s_slope_200_isoAH_Lz4000/' % (AHs[ii],mny0str)
 
         # BBTRE run:
-        input_dict['dt'] = 4*lday
-        input_dict['sfreq'] = 4
-        input_dict['ny'] = 576
-        input_dict['nz'] = 1024
-        input_dict['Lz'] = 4000.
-        input_dict['AHvar'] = 0
+        input_dict['dt']     = 4*lday
+        input_dict['Ttot']   = 100
+        input_dict['sfreq']  = 4
+        input_dict['ny']     = 576
+        input_dict['nz']     = 1024
+        input_dict['Lz']     = 4000.
+        input_dict['AHvar']  = 0
         input_dict['AHfull'] = 1
 
-        input_dict['slope'] = 1/200.        
-        input_dict['AH']    = 100.
-        input_dict['N2']    =
-        input_dict['d']     = 
+        input_dict['slope']  = 1/500.        
+        input_dict['AH']     = 100.
+        input_dict['N2']     = 1.69e-6
+        input_dict['d']      = 230.
+        input_dict['SPru0i'] = 1.95
+        input_dict['K0']     = 1.8e-3
+        input_dict['Kinf']   = 5.2e-5
 
-        input_dict['z0'] = 10.
-        input_dict['sz0'] = 3.*1024./192.
-        input_dict['sy0'] = 3.*576./384.
+        input_dict['z0']     = 4.3
+        input_dict['sz0']    = 3.*1024./192.
+        input_dict['sy0']    = 3.*576./384.
 
         outdir = outfold + 'BBTRE/'
 
