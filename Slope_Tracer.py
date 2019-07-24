@@ -42,6 +42,8 @@ SPru0i = 0.0 # across-slope (S*Pru0)^(-1) (interior db/dz reduction)
 Kinf = 1.0e-5
 K0 = 1.0e-3
 d = 500.0
+Kred = 0 # 1 = reduce to zero at bottom with scale Kreds, 0 = don't.
+Kreds = 0.5 # scale of exponential reduction (units of q0^{-1}).
 
 AH = 0.0
 AHvar = 1 # 1 = Reduced in BBL, 0 = Constant
@@ -70,7 +72,7 @@ sfreq = 2
 accept_list = ['Ly','Lz','ny','nz','N2','slope','Prv0','SPru0i',
                'Kinf','K0','d','AH','AHvar','AHfull','trItype','z0','sz0',
                'c0','sy0','mxy0','mny0','ADV','lday','dt',
-               'Ttot','sfreq']
+               'Ttot','sfreq','Kred','Kreds']
 default_input_dict = {}
 for i in accept_list:
     exec('default_input_dict[i] = %s' % i)
@@ -79,7 +81,7 @@ for i in accept_list:
 def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
                Kinf,K0,d,AH,AHvar,AHfull,trItype,z0,sz0,
                c0,sy0,mxy0,mny0,ADV,lday,dt,
-               Ttot,sfreq,plot):
+               Ttot,sfreq,Kred,Kreds,plot):
 
     # Create bases and domain
     y_basis = de.Fourier('y', ny, interval=(0, Ly))#, dealias=3/2)
@@ -159,6 +161,11 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
   
     # NOTE: SPru0i non-zero case only works with Kinf not equal to 0.
 
+    # Artifically reduce K through BBL:
+    if Kred == 1:
+        K['g'] = K['g']*(1.-np.exp(-q0*z/Kreds))
+        K.differentiate('z',out=Kz)
+
     # Equations and Solver
     problem = de.IVP(domain, variables=['tr','trz'], ncc_cutoff=1e-20)
     problem.meta[:]['z']['dirichlet'] = True
@@ -233,7 +240,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
 
     # Save parameters:
     np.savez(rundir + 'runparams',Ly=Ly,Lz=Lz,N2=N2,slope=slope,theta=theta,Prv0=Prv0,SPru0i=SPru0i,Kinf=Kinf,K0=K0,d=d,AH=AH,AHvar=AHvar,AHfull=AHfull,
-             q0=q0,By=By,sy=sy,sz=sz,cy=cy,cz=cz,lday=lday,dt=dt,sfreq=sfreq,Itot=Itot,Ttot=Ttot,mxy0=mxy0,mny0=mny0)
+             q0=q0,By=By,sy=sy,sz=sz,cy=cy,cz=cz,lday=lday,dt=dt,sfreq=sfreq,Itot=Itot,Ttot=Ttot,mxy0=mxy0,mny0=mny0,Kred=Kred,Kreds=Kreds)
 
     ## Analysis
     # Input fields file:
@@ -399,8 +406,8 @@ if __name__ == "__main__":
     rank   = comm.Get_rank()
     rundir = '/short/e14/rmh561/dedalus/Slope_Tracer/rundir/';
     outbase = '/g/data/e14/rmh561/Slope_Tracer/saveRUNS/';
-    outfold = outbase + 'prodruns_layer30-08-18/'
-    # outfold = outbase + 'prodruns24-08-18/'
+    # outfold = outbase + 'prodruns_layer30-08-18/'
+    outfold = outbase + 'prodruns24-08-18/'
 
     plot = False
 
@@ -486,30 +493,40 @@ if __name__ == "__main__":
 #         mny0str  = ('%0.4f' % mny0s[ii]).replace('.','p')
 #         outdir = outfold + 'AH_%03d_ADV_2_Kinf_m5_mny0_%s_slope_200_isoAH_Lz4000/' % (AHs[ii],mny0str)
 
-        # BBTRE run:
+        # # BBTRE run:
+        # input_dict['dt']     = 4*lday
+        # input_dict['Ttot']   = 100
+        # input_dict['sfreq']  = 4
+        # input_dict['ny']     = 576
+        # input_dict['nz']     = 1024
+        # input_dict['Lz']     = 4000.
+        # input_dict['AHvar']  = 0
+        # input_dict['AHfull'] = 1
+
+        # input_dict['slope']  = 1/500.        
+        # input_dict['AH']     = 100.
+        # input_dict['N2']     = 1.69e-6
+        # input_dict['d']      = 230.
+        # input_dict['SPru0i'] = 1.95
+        # input_dict['K0']     = 1.8e-3
+        # input_dict['Kinf']   = 5.2e-5
+
+        # input_dict['z0']     = 4.3
+        # input_dict['sz0']    = 3.*1024./192.
+        # input_dict['sy0']    = 3.*576./384.
+
+        # outdir = outfold + 'BBTRE/'
+
+        # K BBL variation testing:
         input_dict['dt']     = 4*lday
-        input_dict['Ttot']   = 100
         input_dict['sfreq']  = 4
-        input_dict['ny']     = 576
-        input_dict['nz']     = 1024
-        input_dict['Lz']     = 4000.
-        input_dict['AHvar']  = 0
-        input_dict['AHfull'] = 1
+        input_dict['ny']     = 384
+        input_dict['nz']     = 768
 
-        input_dict['slope']  = 1/500.        
-        input_dict['AH']     = 100.
-        input_dict['N2']     = 1.69e-6
-        input_dict['d']      = 230.
-        input_dict['SPru0i'] = 1.95
-        input_dict['K0']     = 1.8e-3
-        input_dict['Kinf']   = 5.2e-5
-
-        input_dict['z0']     = 4.3
-        input_dict['sz0']    = 3.*1024./192.
-        input_dict['sy0']    = 3.*576./384.
-
-        outdir = outfold + 'BBTRE/'
-
+        input_dict['sz0']    = 3.*2.
+        input_dict['sy0']    = 3.*2.
+        input_dict['Kred']   = 1
+        
         # z0str = ('%1.4f' % z0s[ii]).replace('.','p')
         # Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
         # slopestr = '%03d' % (1./slopes[ii])
