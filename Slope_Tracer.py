@@ -443,11 +443,12 @@ if __name__ == "__main__":
     # AHs = [0.,20.,30.,40.,50.,60.,70.,80.,90.]
     # mny0s = [1.6/3.] * len(AHs)
 
-    # Larger Ly runs:
-    AHs = [100.,125.,150.,175.,200.]
-    mny0s = [1.6/3.] * len(AHs)
+    # # Larger Ly runs:
+    # AHs = [100.,125.,150.,175.,200.]
+    # mny0s = [1.6/3.] * len(AHs)
 
-    for ii in range(len(AHs)):
+#    for ii in range(len(AHs)):
+    for ii in range(1):#len(AHs)):
 
         input_dict = default_input_dict.copy()
 
@@ -463,27 +464,47 @@ if __name__ == "__main__":
         # input_dict['AHfull'] = 1
         # outdir = outfold + 'z0_0p5000_AH_%03d_ADV_2_Kinf_m5_slope_400_isoAH/' % (AHs[ii])
 
-        # Production isoAH (true along-isopycnal) layer-release runs:
+#         # Production isoAH (true along-isopycnal) layer-release runs:
+#         input_dict['dt'] = 4*lday
+#         input_dict['sfreq'] = 4
+# #        input_dict['nz'] = 768
+#         input_dict['ny'] = 576
+#         input_dict['AHvar'] = 0
+#         input_dict['AHfull'] = 1
+
+#         input_dict['slope'] = 1/200.        
+#         input_dict['AH'] = AHs[ii]
+#         input_dict['mny0'] = mny0s[ii]
+
+#         input_dict['z0'] = 10.
+#         input_dict['trItype'] = 2
+#         input_dict['sz0'] = 3.*768./192.
+
+#         input_dict['Lz'] = 4000.
+#         input_dict['nz'] = 1024
+
+#         mny0str  = ('%0.4f' % mny0s[ii]).replace('.','p')
+#         outdir = outfold + 'AH_%03d_ADV_2_Kinf_m5_mny0_%s_slope_200_isoAH_Lz4000/' % (AHs[ii],mny0str)
+
+        # BBTRE run:
         input_dict['dt'] = 4*lday
         input_dict['sfreq'] = 4
-#        input_dict['nz'] = 768
         input_dict['ny'] = 576
+        input_dict['nz'] = 1024
+        input_dict['Lz'] = 4000.
         input_dict['AHvar'] = 0
         input_dict['AHfull'] = 1
 
         input_dict['slope'] = 1/200.        
-        input_dict['AH'] = AHs[ii]
-        input_dict['mny0'] = mny0s[ii]
+        input_dict['AH']    = 100.
+        input_dict['N2']    =
+        input_dict['d']     = 
 
         input_dict['z0'] = 10.
-        input_dict['trItype'] = 2
-        input_dict['sz0'] = 3.*768./192.
+        input_dict['sz0'] = 3.*1024./192.
+        input_dict['sy0'] = 3.*576./384.
 
-        input_dict['Lz'] = 4000.
-        input_dict['nz'] = 1024
-
-        mny0str  = ('%0.4f' % mny0s[ii]).replace('.','p')
-        outdir = outfold + 'AH_%03d_ADV_2_Kinf_m5_mny0_%s_slope_200_isoAH_Lz4000/' % (AHs[ii],mny0str)
+        outdir = outfold + 'BBTRE/'
 
         # z0str = ('%1.4f' % z0s[ii]).replace('.','p')
         # Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')

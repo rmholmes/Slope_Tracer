@@ -4,7 +4,7 @@
 #PBS -l ncpus=64
 #PBS -l mem=128GB
 #PBS -l wd
-#PBS -q express
+#PBS -q normal
 #PBS -M ryan.holmes@unsw.edu.au
 
 source setup.sh
