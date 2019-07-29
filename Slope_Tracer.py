@@ -150,6 +150,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     By = N2*np.sin(theta)
     Bz = domain.new_field();Bz.meta['y']['constant'] = True
     Bzp = domain.new_field();Bzp.meta['y']['constant'] = True
+    BzpSML = domain.new_field();BzpSML.meta['y']['constant'] = True
     B = domain.new_field()
     B['g'] = N2*np.sin(theta)*y + N2*np.cos(theta)/(1.+SPru0i)*(z +
                 np.exp(-q0*z)*np.cos(q0*z)/q0*(1.+SPru0i*Kinf/K0) +
@@ -158,7 +159,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     f['g'] = np.exp(-q0*z)*(np.cos(q0*z)+np.sin(q0*z))
     Bzp['g'] = -N2*np.cos(theta)/(1+SPru0i)*f['g']
     Bz['g'] = (N2*np.cos(theta)/(1+SPru0i) + Bzp['g'])*(1+SPru0i*Kinf/K['g'])
-  
+    BzpSML['g'] = -N2*np.cos(theta)*(K0-Kinf)*np.exp(-z/d)*SPru0i/((1+SPru0i)*K['g'])
     # NOTE: SPru0i non-zero case only works with Kinf not equal to 0.
 
     # Artifically reduce K through BBL:
@@ -179,6 +180,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     problem.parameters['By'] = By
     problem.parameters['Bz'] = Bz
     problem.parameters['Bzp'] = Bzp
+    problem.parameters['BzpSML'] = BzpSML
     problem.parameters['B'] = B
     problem.parameters['Hbbl'] = Hbbl
     problem.parameters['costh'] = np.cos(theta)
@@ -250,6 +252,8 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     ifields.add_task("AHdd", layout='g', name = 'AHdd')
     ifields.add_task("V", layout='g', name = 'V')
     ifields.add_task("Bz", layout='g', name = 'Bz')
+    ifields.add_task("Bzp", layout='g', name = 'Bzp')
+    ifields.add_task("BzpSML", layout='g', name = 'BzpSML')
     ifields.add_task("1. + costh**2.*f*(f-2)", layout='g', name='GB2')
     ifields.add_task("costh**2.*(1-f)**2./(1. + costh**2.*f*(f-2))", layout='g', name='KHyy')
     ifields.add_task("-costh*sinth*(1-f)/(1. + costh**2.*f*(f-2))", layout='g', name='KHyz')
@@ -312,9 +316,11 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     moments.add_task("integ(integ(Kz*tr*N2*costh/(1+SPru0i),'z'),'y')", layout='g', name = 'KztrBZ')
     moments.add_task("integ(integ(K*trz*Bz,'z'),'y')", layout='g', name = 'KtrzBz')
     moments.add_task("integ(integ(K*trz*Bzp,'z'),'y')", layout='g', name = 'KtrzBzp')
+    moments.add_task("integ(integ(K*trz*BzpSML,'z'),'y')", layout='g', name = 'KtrzBzpSML')
     moments.add_task("integ(integ(K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrzBz')
 
     moments.add_task("integ(integ(trz*Bzp,'z'),'y')", layout='g', name = 'trzBzp')
+    moments.add_task("integ(integ(trz*BzpSML,'z'),'y')", layout='g', name = 'trzBzpSML')
 
     # B VAR terms:
     moments.add_task("integ(integ(tr*B*V*By,'z'),'y')", layout='g', name = 'VtrBBy')
@@ -324,6 +330,8 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     moments.add_task("integ(integ(B*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrzBBz')
     moments.add_task("integ(integ(B*K*trz*Bzp,'z'),'y')", layout='g', name = 'KtrzBBzp')
     moments.add_task("integ(integ(tr*K*Bzp*N2*costh/(1+SPru0i),'z'),'y')", layout='g', name = 'KtrBZBzp')
+    moments.add_task("integ(integ(B*K*trz*BzpSML,'z'),'y')", layout='g', name = 'KtrzBBzpSML')
+    moments.add_task("integ(integ(tr*K*BzpSML*N2*costh/(1+SPru0i),'z'),'y')", layout='g', name = 'KtrBZBzpSML')
     moments.add_task("integ(integ(B*Kz*tr*N2*costh/(1+SPru0i),'z'),'y')", layout='g', name = 'KztrBBZ')
     moments.add_task("integ(integ(B*K*Hbbl*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtryBBy')
     moments.add_task("integ(integ(B*K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrzBBz')
@@ -493,39 +501,42 @@ if __name__ == "__main__":
 #         mny0str  = ('%0.4f' % mny0s[ii]).replace('.','p')
 #         outdir = outfold + 'AH_%03d_ADV_2_Kinf_m5_mny0_%s_slope_200_isoAH_Lz4000/' % (AHs[ii],mny0str)
 
-        # # BBTRE run:
-        # input_dict['dt']     = 4*lday
-        # input_dict['Ttot']   = 100
-        # input_dict['sfreq']  = 4
-        # input_dict['ny']     = 576
-        # input_dict['nz']     = 1024
-        # input_dict['Lz']     = 4000.
-        # input_dict['AHvar']  = 0
-        # input_dict['AHfull'] = 1
-
-        # input_dict['slope']  = 1/500.        
-        # input_dict['AH']     = 100.
-        # input_dict['N2']     = 1.69e-6
-        # input_dict['d']      = 230.
-        # input_dict['SPru0i'] = 1.95
-        # input_dict['K0']     = 1.8e-3
-        # input_dict['Kinf']   = 5.2e-5
-
-        # input_dict['z0']     = 4.3
-        # input_dict['sz0']    = 3.*1024./192.
-        # input_dict['sy0']    = 3.*576./384.
-
-        # outdir = outfold + 'BBTRE/'
-
-        # K BBL variation testing:
+        # BBTRE run:
         input_dict['dt']     = 4*lday
+        input_dict['Ttot']   = 3200
         input_dict['sfreq']  = 4
-        input_dict['ny']     = 384
-        input_dict['nz']     = 768
+        input_dict['ny']     = 576
+        input_dict['nz']     = 1024
+        input_dict['Lz']     = 4000.
+        input_dict['AHvar']  = 0
+        input_dict['AHfull'] = 1
 
-        input_dict['sz0']    = 3.*2.
-        input_dict['sy0']    = 3.*2.
-        input_dict['Kred']   = 1
+        input_dict['slope']  = 1/500.        
+        input_dict['AH']     = 100.
+        input_dict['N2']     = 1.69e-6
+        input_dict['d']      = 230.
+        input_dict['SPru0i'] = 1.95
+        input_dict['K0']     = 1.8e-3
+        input_dict['Kinf']   = 5.2e-5
+
+        input_dict['z0']     = 4.3
+        input_dict['sz0']    = 3.*1024./192.
+        input_dict['sy0']    = 3.*576./384.
+
+        outdir = outfold + 'BBTRE/'
+
+        # # K BBL variation testing:
+        # input_dict['dt']     = 4*lday
+        # input_dict['sfreq']  = 4
+        # input_dict['ny']     = 384
+        # input_dict['nz']     = 768
+
+        # input_dict['sz0']    = 3.*2.
+        # input_dict['sy0']    = 3.*2.
+        # input_dict['Kred']   = 1
+
+        # outdir = outfold + 'Kredtest_Kred_Kreds_0p5/'
+
         
         # z0str = ('%1.4f' % z0s[ii]).replace('.','p')
         # Kinfstr = ('%01d' % np.log10(Kinfs[ii])).replace('-','m')
