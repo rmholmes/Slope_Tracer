@@ -313,7 +313,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
 
     moments.add_task("integ(integ(K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtryBy')
     moments.add_task("integ(integ(K*Hbbl*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtryBy')
-    moments.add_task("integ(integ(Kz*tr*N2*costh/(1+SPru0i),'z'),'y')", layout='g', name = 'KztrBZ')
+    moments.add_task("integ(integ(Kz*tr*N2*costh,'z'),'y')", layout='g', name = 'KztrBZ')
     moments.add_task("integ(integ(K*trz*Bz,'z'),'y')", layout='g', name = 'KtrzBz')
     moments.add_task("integ(integ(K*trz*Bzp,'z'),'y')", layout='g', name = 'KtrzBzp')
     moments.add_task("integ(integ(K*trz*BzpSML,'z'),'y')", layout='g', name = 'KtrzBzpSML')
@@ -329,10 +329,10 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     moments.add_task("integ(integ(B*K*dy(tr)*By,'z'),'y')", layout='g', name = 'KtryBBy')
     moments.add_task("integ(integ(B*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrzBBz')
     moments.add_task("integ(integ(B*K*trz*Bzp,'z'),'y')", layout='g', name = 'KtrzBBzp')
-    moments.add_task("integ(integ(tr*K*Bzp*N2*costh/(1+SPru0i),'z'),'y')", layout='g', name = 'KtrBZBzp')
+    moments.add_task("integ(integ(tr*K*Bzp*N2*costh,'z'),'y')", layout='g', name = 'KtrBZBzp')
     moments.add_task("integ(integ(B*K*trz*BzpSML,'z'),'y')", layout='g', name = 'KtrzBBzpSML')
-    moments.add_task("integ(integ(tr*K*BzpSML*N2*costh/(1+SPru0i),'z'),'y')", layout='g', name = 'KtrBZBzpSML')
-    moments.add_task("integ(integ(B*Kz*tr*N2*costh/(1+SPru0i),'z'),'y')", layout='g', name = 'KztrBBZ')
+    moments.add_task("integ(integ(tr*K*BzpSML*N2*costh,'z'),'y')", layout='g', name = 'KtrBZBzpSML')
+    moments.add_task("integ(integ(B*Kz*tr*N2*costh,'z'),'y')", layout='g', name = 'KztrBBZ')
     moments.add_task("integ(integ(B*K*Hbbl*dy(tr)*By,'z'),'y')", layout='g', name = 'KbblTtryBBy')
     moments.add_task("integ(integ(B*K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrzBBz')
 
@@ -503,7 +503,7 @@ if __name__ == "__main__":
 
         # BBTRE run:
         input_dict['dt']     = 4*lday
-        input_dict['Ttot']   = 3200
+        input_dict['Ttot']   = 6400
         input_dict['sfreq']  = 4
         input_dict['ny']     = 576
         input_dict['nz']     = 1024
