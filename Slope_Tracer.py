@@ -504,9 +504,10 @@ if __name__ == "__main__":
         input_dict['dt']     = 4*lday
         input_dict['Ttot']   = 6400
         input_dict['sfreq']  = 4
-        input_dict['ny']     = 576
+        input_dict['ny']     = 768
         input_dict['nz']     = 1024
         input_dict['Lz']     = 4000.
+        input_dict['Ly']     = 2000000.
         input_dict['AHvar']  = 0
         input_dict['AHfull'] = 1
 
