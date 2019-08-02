@@ -186,6 +186,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     problem.parameters['costh'] = np.cos(theta)
     problem.parameters['sinth'] = np.sin(theta)
     problem.parameters['SPru0i'] = SPru0i
+    problem.parameters['f'] = f
 
     # Flux-formulation:
     # Advection and isotropic diffusion fluxes:
@@ -194,14 +195,15 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
 
     # LHS K-tensor terms:
     if AHfull == 1:                  # Full along-isopycnal diffusion
-        problem.parameters['f'] = f
+        problem.substitutions['GB2'] = "Bz**2.+By**2."
+        problem.substitutions['KHyy'] = "Bz**2./GB2"
+        problem.substitutions['KHyz'] = "-By*Bz/GB2"
+        problem.substitutions['KHzz'] = "By**2./GB2"
     else:                            # Horizontal diffusion
-        problem.parameters['f'] = 0.
+        problem.substitutions['KHyy'] = "costh**2"
+        problem.substitutions['KHyz'] = "-costh*sinth"
+        problem.substitutions['KHzz'] = "sinth**2."
     
-    problem.substitutions['GB2'] = "1. + costh**2.*f*(f-2)"
-    problem.substitutions['KHyy'] = "costh**2.*(1-f)**2./GB2"
-    problem.substitutions['KHyz'] = "-costh*sinth*(1-f)/GB2"
-    problem.substitutions['KHzz'] = "sinth**2./GB2"
 
     # LHS fluxes:
     problem.substitutions['FHy']   = "-AHdd*(KHyy*dy(tr) + KHyz*trz)"
@@ -254,10 +256,6 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     ifields.add_task("Bz", layout='g', name = 'Bz')
     ifields.add_task("Bzp", layout='g', name = 'Bzp')
     ifields.add_task("BzpSML", layout='g', name = 'BzpSML')
-    ifields.add_task("1. + costh**2.*f*(f-2)", layout='g', name='GB2')
-    ifields.add_task("costh**2.*(1-f)**2./(1. + costh**2.*f*(f-2))", layout='g', name='KHyy')
-    ifields.add_task("-costh*sinth*(1-f)/(1. + costh**2.*f*(f-2))", layout='g', name='KHyz')
-    ifields.add_task("sinth**2./(1. + costh**2.*f*(f-2))", layout='g', name='KHzz')
 
     # Snapshots file:
     snapshots = solver.evaluator.add_file_handler(rundir + 'snapshots', iter=sfreq, max_writes=20000)
@@ -317,6 +315,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     moments.add_task("integ(integ(K*trz*Bz,'z'),'y')", layout='g', name = 'KtrzBz')
     moments.add_task("integ(integ(K*trz*Bzp,'z'),'y')", layout='g', name = 'KtrzBzp')
     moments.add_task("integ(integ(K*trz*BzpSML,'z'),'y')", layout='g', name = 'KtrzBzpSML')
+    moments.add_task("integ(integ(K*trz*N2*costh,'z'),'y')", layout='g', name = 'KtrzBZ')
     moments.add_task("integ(integ(K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrzBz')
 
     moments.add_task("integ(integ(trz*Bzp,'z'),'y')", layout='g', name = 'trzBzp')
