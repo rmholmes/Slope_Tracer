@@ -151,6 +151,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     Bz = domain.new_field();Bz.meta['y']['constant'] = True
     Bzp = domain.new_field();Bzp.meta['y']['constant'] = True
     BzpSML = domain.new_field();BzpSML.meta['y']['constant'] = True
+    BzpSMLz = domain.new_field();BzpSMLz.meta['y']['constant'] = True
     B = domain.new_field()
     B['g'] = N2*np.sin(theta)*y + N2*np.cos(theta)/(1.+SPru0i)*(z +
                 np.exp(-q0*z)*np.cos(q0*z)/q0*(1.+SPru0i*Kinf/K0) +
@@ -160,6 +161,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     Bzp['g'] = -N2*np.cos(theta)/(1+SPru0i)*f['g']
     Bz['g'] = (N2*np.cos(theta)/(1+SPru0i) + Bzp['g'])*(1+SPru0i*Kinf/K['g'])
     BzpSML['g'] = -N2*np.cos(theta)*(K0-Kinf)*np.exp(-z/d)*SPru0i/((1+SPru0i)*K['g'])
+    BzpSML.differentiate('z',out=BzpSMLz)
     # NOTE: SPru0i non-zero case only works with Kinf not equal to 0.
 
     # Artifically reduce K through BBL:
@@ -181,6 +183,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     problem.parameters['Bz'] = Bz
     problem.parameters['Bzp'] = Bzp
     problem.parameters['BzpSML'] = BzpSML
+    problem.parameters['BzpSMLz'] = BzpSMLz
     problem.parameters['B'] = B
     problem.parameters['Hbbl'] = Hbbl
     problem.parameters['costh'] = np.cos(theta)
@@ -315,6 +318,8 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     moments.add_task("integ(integ(K*trz*Bz,'z'),'y')", layout='g', name = 'KtrzBz')
     moments.add_task("integ(integ(K*trz*Bzp,'z'),'y')", layout='g', name = 'KtrzBzp')
     moments.add_task("integ(integ(K*trz*BzpSML,'z'),'y')", layout='g', name = 'KtrzBzpSML')
+    moments.add_task("integ(integ(Kz*tr*BzpSML,'z'),'y')", layout='g', name = 'KztrBzpSML')
+    moments.add_task("integ(integ(K*tr*BzpSMLz,'z'),'y')", layout='g', name = 'KtrBzpSMLz')
     moments.add_task("integ(integ(K*trz*N2*costh,'z'),'y')", layout='g', name = 'KtrzBZ')
     moments.add_task("integ(integ(K*Hbbl*trz*Bz,'z'),'y')", layout='g', name = 'KbblTtrzBz')
 
@@ -322,6 +327,8 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     moments.add_task("integ(integ(trz*BzpSML,'z'),'y')", layout='g', name = 'trzBzpSML')
 
     # B VAR terms:
+    moments.add_task("integ(integ(tr*K*(BzpSML+N2*costh)*(BzpSML+N2*costh),'z'),'y')", layout='g', name = 'KtrBzpSMLBzpSML')
+    moments.add_task("integ(integ(B*K*tr*BzpSMLz,'z'),'y')", layout='g', name = 'KtrBBzpSMLz')
     moments.add_task("integ(integ(tr*B*V*By,'z'),'y')", layout='g', name = 'VtrBBy')
     moments.add_task("integ(integ(tr*B*Vbbl*By,'z'),'y')", layout='g', name = 'VbbltrBBy')
     moments.add_task("integ(integ(tr*B*V*Hbbl*By,'z'),'y')", layout='g', name = 'VbblTtrBBy')
@@ -329,6 +336,7 @@ def run_sim(rundir,Ly,Lz,ny,nz,N2,slope,Prv0,SPru0i,
     moments.add_task("integ(integ(B*K*trz*Bz,'z'),'y')", layout='g', name = 'KtrzBBz')
     moments.add_task("integ(integ(B*K*trz*Bzp,'z'),'y')", layout='g', name = 'KtrzBBzp')
     moments.add_task("integ(integ(tr*K*Bzp*N2*costh,'z'),'y')", layout='g', name = 'KtrBZBzp')
+    moments.add_task("integ(integ(tr*K*Bzp*(BzpSML+N2*costh),'z'),'y')", layout='g', name = 'KtrBBzpBzpSML')
     moments.add_task("integ(integ(B*K*trz*BzpSML,'z'),'y')", layout='g', name = 'KtrzBBzpSML')
     moments.add_task("integ(integ(tr*K*BzpSML*N2*costh,'z'),'y')", layout='g', name = 'KtrBZBzpSML')
     moments.add_task("integ(integ(B*Kz*tr*N2*costh,'z'),'y')", layout='g', name = 'KztrBBZ')
